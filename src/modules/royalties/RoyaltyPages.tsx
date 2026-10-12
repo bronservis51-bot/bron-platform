@@ -390,7 +390,9 @@ export function ReportPage() {
                     <Button onClick={() => setDialog('return')}>Вернуть на исправление</Button>
                     <Button variant="primary" onClick={() => { setSegments(null); setDialog('approve'); }}>Утвердить и рассчитать</Button>
                   </>}
-                  {r.status === 'approved' && can('royalty.publish') && !accrual.data && <Button variant="primary" onClick={() => setDialog('publish')}>Опубликовать начисление</Button>}
+                  {r.status === 'approved' && can('royalty.publish') && !accrual.data && (calc.data?.created_by === me?.user.id
+                    ? <span className="faint" style={{ alignSelf: 'center' }}>Начисление публикует другой сотрудник финансов</span>
+                    : <Button variant="primary" onClick={() => setDialog('publish')}>Опубликовать начисление</Button>)}
                   {r.status === 'approved' && can('royalty.publish') && accrual.data && <Button onClick={() => setDialog('close')}>Закрыть период</Button>}
                 </>
               } />
@@ -480,9 +482,9 @@ export function ReportPage() {
                       <tbody>{calc.data.inputs.segments.map((s, i) => (
                         <tr key={i}><td>{formatDate(s.from, intlLocale())} – {formatDate(s.to, intlLocale())} <span className="faint">(правила v{s.policy_version})</span></td>
                           <td className="r"><Money minor={s.base_minor} currency={calc.data!.currency} /></td><td className="r">{pct(s.rate_bp)}</td>
-                          <td className="r num">{(Number(s.exact) / 100).toLocaleString(intlLocale(), { maximumFractionDigits: 4 })}</td></tr>
+                          <td className="r num">{(Number(s.exact) / 100).toLocaleString(intlLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td></tr>
                       ))}</tbody>
-                      <tfoot><tr><td colSpan={3}>Начисление (округление: {calc.data.inputs.rounding === 'half_up' ? 'до копейки, половина вверх' : calc.data.inputs.rounding})</td><td className="r"><Money minor={calc.data.amount_minor} currency={calc.data.currency} strong /></td></tr></tfoot>
+                      <tfoot><tr><td colSpan={3}>Начисление (округление: {calc.data.inputs.rounding === 'half_up' ? 'до минимальной денежной единицы, половина вверх' : calc.data.inputs.rounding})</td><td className="r"><Money minor={calc.data.amount_minor} currency={calc.data.currency} strong /></td></tr></tfoot>
                     </table></div>
                     <div className="faint">Расчёт по редакции {calc.data.inputs.rev_no}, {formatDateTime(calc.data.created_at, intlLocale())}. Входные данные сохранены и не меняются при изменении договора.</div>
                     {accrual.data && <div style={{ marginTop: 8 }}><Link to={`/royalties/accruals/${accrual.data.id}`}>Начисление {accrual.data.number}: срок оплаты {formatDate(accrual.data.due_on, intlLocale())}</Link></div>}

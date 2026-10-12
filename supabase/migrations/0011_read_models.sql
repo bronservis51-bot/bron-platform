@@ -98,7 +98,8 @@ begin
   -- Критические события: срочные непрочитанные уведомления
   v := v || jsonb_build_object('critical', coalesce((select jsonb_agg(x order by x.created_at desc) from (
     select n.id, n.title, n.body, n.link, n.created_at, n.kind from public.notification n
-    where n.user_id = v_user and n.critical and n.read_at is null order by n.created_at desc limit 10) x), '[]'::jsonb));
+    where n.user_id = v_user and n.critical and n.read_at is null and n.kind <> 'kb.ack' -- ознакомления показаны отдельным блоком
+    order by n.created_at desc limit 10) x), '[]'::jsonb));
 
   -- Сводка для открытия проектов партнёра/менеджера
   v := v || jsonb_build_object('openings', coalesce((select jsonb_agg(x order by x.planned_open_on) from (
@@ -207,6 +208,7 @@ end $$;
 create function public.queue_health() returns table (queue_role text, queue_name text, partner_name text, location_name text,
   open_items bigint, members bigint, backup_members bigint)
 language plpgsql stable security definer set search_path = public, app_private, pg_temp as $$
+#variable_conflict use_column
 begin
   perform app_private.require_user();
   if not (app_private.has_perm_anywhere('metrics.read') or app_private.has_perm_anywhere('access.manage')) then

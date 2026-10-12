@@ -578,6 +578,7 @@ begin
   insert into public.accrual(number, contract_id, partner_id, period, calculation_id, amount_minor, currency, due_on, published_by)
   values (v_number, r.contract_id, r.partner_id, r.period, k.id, k.amount_minor, k.currency, v_due, v_user) returning id into v_id;
   perform app_private.roy_log('accrual', v_id, r.partner_id, 'published', jsonb_build_object('amount_minor', k.amount_minor, 'currency', k.currency), null);
+  perform app_private.roy_log('revenue_report', r.id, r.partner_id, 'published', jsonb_build_object('accrual', v_number, 'amount_minor', k.amount_minor), null);
   perform app_private.audit('accrual.publish', 'accrual', v_id, r.partner_id, jsonb_build_object('amount_minor', k.amount_minor, 'currency', k.currency, 'due_on', v_due));
   perform app_private.notify_queue('partner_owner', r.partner_id, null, 'accrual.published', 'Начисление роялти ' || v_number,
     'Срок оплаты ' || to_char(v_due, 'DD.MM.YYYY'), 'accrual', v_id, '/royalties/accruals/' || v_id, 'accrual.published:' || v_id);

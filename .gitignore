@@ -9,3 +9,6 @@ local/
 .DS_Store
 coverage/
 .vite/
+backups/
+local-backend.log
+supabase/bundle*.sql

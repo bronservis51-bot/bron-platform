@@ -182,6 +182,7 @@ create function public.catalog_for_location(p_location uuid)
 returns table (item_id uuid, sku text, name text, category text, description text, unit text, pack_multiple numeric, min_qty numeric,
   lead_time_days int, price_minor bigint, currency text, available_qty numeric, stock_source text, stock_refreshed_at timestamptz)
 language plpgsql stable security definer set search_path = public, app_private, pg_temp as $$
+#variable_conflict use_column
 declare l public.location; v_list uuid; v_cur text;
 begin
   perform app_private.require_user();

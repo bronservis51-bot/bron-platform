@@ -41,9 +41,9 @@ export function TodayPage() {
         actions={
           <>
             {(can('ticket.create')) && <LinkButton to="/support/new" size="sm"><Headset size={16} aria-hidden />{t('Новое обращение')}</LinkButton>}
-            {can('order.create') && <LinkButton to="/catalog" size="sm"><ShoppingCart size={16} aria-hidden />Заказать</LinkButton>}
-            {can('royalty.report.submit') && <LinkButton to="/royalties" size="sm"><FileText size={16} aria-hidden />Сдать отчёт</LinkButton>}
-            {can('kb.read') && <LinkButton to="/kb" size="sm"><BookOpen size={16} aria-hidden />Найти инструкцию</LinkButton>}
+            {can('order.create') && <LinkButton to="/catalog" size="sm"><ShoppingCart size={16} aria-hidden />{t('Заказать')}</LinkButton>}
+            {can('royalty.report.submit') && <LinkButton to="/royalties" size="sm"><FileText size={16} aria-hidden />{t('Сдать отчёт')}</LinkButton>}
+            {can('kb.read') && <LinkButton to="/kb" size="sm"><BookOpen size={16} aria-hidden />{t('Найти инструкцию')}</LinkButton>}
           </>
         }
       />
@@ -73,7 +73,7 @@ export function TodayPage() {
                     </ul>
                   </Card>
                 )}
-                <Card title={t('Мои задачи')} actions={<Link to="/tasks">Все задачи</Link>} bodyless>
+                <Card title={t('Мои задачи')} actions={<Link to="/tasks">{t('Все задачи')}</Link>} bodyless>
                   {d.my_tasks.length ? (
                     <ul className="list">
                       {d.my_tasks.map((x) => {
@@ -86,7 +86,7 @@ export function TodayPage() {
                                 <div className="meta">
                                   <span className="mono">{x.number}</span>
                                   {(x.location_name || x.partner_name) && <span>{x.location_name ?? x.partner_name}</span>}
-                                  {x.status_reason && ['blocked', 'waiting_external'].includes(x.status) && <span>Мешает: {x.status_reason}</span>}
+                                  {x.status_reason && ['blocked', 'waiting_external'].includes(x.status) && <span>{t('Мешает')}: {x.status_reason}</span>}
                                 </div>
                               </div>
                               <div className="side"><Due at={x.due_at} /><Badge tone={tone}>{t(label)}</Badge></div>
@@ -98,7 +98,7 @@ export function TodayPage() {
                   ) : <EmptyState title={t('Нет задач на сегодня')} text="Новые задачи из очереди появятся ниже." />}
                 </Card>
                 {d.tickets.length > 0 && (
-                  <Card title={t('Обращения')} actions={<Link to="/support">Все</Link>} bodyless>
+                  <Card title={t('Обращения')} actions={<Link to="/support">{t('Все')}</Link>} bodyless>
                     <ul className="list">
                       {d.tickets.map((k) => {
                         const [label, tone] = st(TICKET_STATUS, k.status);
@@ -157,8 +157,8 @@ export function TodayPage() {
                         <li key={b.accrual_id}>
                           <Link className="list-item" to={`/royalties/accruals/${b.accrual_id}`}>
                             <div className="main-col">
-                              <div className="title">Роялти за {formatPeriod(b.period, intlLocale()).toLowerCase()}</div>
-                              <div className="meta">Срок {formatDate(b.due_on, intlLocale())}</div>
+                              <div className="title">{t('Роялти за {{p}}', { p: formatPeriod(b.period, intlLocale()).toLowerCase() })}</div>
+                              <div className="meta">{t('Срок')} {formatDate(b.due_on, intlLocale())}</div>
                             </div>
                             <div className="side"><Money minor={b.outstanding_minor} currency={b.currency} strong />{b.overdue && <Badge tone="danger">просрочено</Badge>}</div>
                           </Link>
@@ -173,7 +173,7 @@ export function TodayPage() {
                       {d.acks.map((a) => (
                         <li key={a.id}>
                           <Link className="list-item" to={`/kb/articles/${a.article_id}`}>
-                            <div className="main-col"><div className="title">{a.title}</div><div className="meta">до {formatDate(a.due_on, intlLocale())}</div></div>
+                            <div className="main-col"><div className="title">{a.title}</div><div className="meta">{t('до')} {formatDate(a.due_on, intlLocale())}</div></div>
                           </Link>
                         </li>
                       ))}
@@ -188,11 +188,11 @@ export function TodayPage() {
                           <Link className="list-item" to={`/openings/${o.id}`}>
                             <div className="main-col">
                               <div className="title">{o.location_name}</div>
-                              <div className="meta"><span>План: {formatDate(o.planned_open_on, intlLocale())}</span><span>{o.done_tasks}/{o.total_tasks} задач</span></div>
+                              <div className="meta"><span>{t('План')}: {formatDate(o.planned_open_on, intlLocale())}</span><span>{o.done_tasks}/{o.total_tasks} {t('задач')}</span></div>
                             </div>
                             <div className="side">
                               {o.date_at_risk || o.overdue_tasks > 0 ? <Badge tone="danger">риск даты</Badge> : <Badge tone="success">в графике</Badge>}
-                              {o.critical_open > 0 && <span className="faint">{o.critical_open} критич.</span>}
+                              {o.critical_open > 0 && <span className="faint">{o.critical_open} {t('критич.')}</span>}
                             </div>
                           </Link>
                         </li>
@@ -206,7 +206,7 @@ export function TodayPage() {
                       {d.drafts.map((x) => (
                         <li key={`${x.kind}-${x.id}`}>
                           <Link className="list-item" to={x.link}>
-                            <div className="main-col"><div className="title">{x.title}</div><div className="meta">{x.items ? `${x.items} поз.` : ''} изменено {formatDate(x.updated_at, intlLocale())}</div></div>
+                            <div className="main-col"><div className="title">{x.title}</div><div className="meta">{x.items ? `${x.items} ${t('поз.')} ` : ''}{t('изменено')} {formatDate(x.updated_at, intlLocale())}</div></div>
                           </Link>
                         </li>
                       ))}

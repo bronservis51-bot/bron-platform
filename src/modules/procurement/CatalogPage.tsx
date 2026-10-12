@@ -38,7 +38,7 @@ function ItemCard({ it, inCart, onSet, busy }: { it: CatalogItem; inCart: number
   const [qty, setQty] = useState(inCart || Math.max(min, step));
   useEffect(() => { if (inCart) setQty(inCart); }, [inCart]);
   const avail = it.available_qty === null ? null : Number(it.available_qty);
-  const age = it.stock_refreshed_at ? dueInfo(it.stock_refreshed_at).label.replace('просрочено на ', '') : null;
+  const age = it.stock_refreshed_at ? dueInfo(it.stock_refreshed_at).span : null;
   const invalid = qty > 0 && (qty < min || Math.abs(qty / step - Math.round(qty / step)) > 1e-9);
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -47,22 +47,22 @@ function ItemCard({ it, inCart, onSet, busy }: { it: CatalogItem; inCart: number
         <h3 style={{ margin: '4px 0 6px', fontSize: 'var(--fs)' }}>{it.name}</h3>
         {it.description && <div className="muted" style={{ fontSize: 'var(--fs-s)' }}>{it.description}</div>}
         <div className="row between" style={{ marginTop: 10 }}>
-          <span><Money minor={it.price_minor} currency={it.currency} strong /> <span className="faint">за {t(UNIT[it.unit] ?? it.unit)}</span></span>
+          <span><Money minor={it.price_minor} currency={it.currency} strong /> <span className="faint">{t('за')} {t(UNIT[it.unit] ?? it.unit)}</span></span>
         </div>
-        <div className="faint" style={{ marginTop: 4 }}>Кратность {fmtQty(step)} · минимум {fmtQty(min)}{it.lead_time_days ? ` · поставка ~${it.lead_time_days} дн.` : ''}</div>
+        <div className="faint" style={{ marginTop: 4 }}>{t('Кратность')} {fmtQty(step)} · {t('минимум')} {fmtQty(min)}{it.lead_time_days ? ` · ${t('поставка ~{{d}} дн.', { d: it.lead_time_days })}` : ''}</div>
         <div style={{ marginTop: 6 }}>
-          {avail === null ? <span className="faint">Остаток неизвестен</span> : avail <= 0
+          {avail === null ? <span className="faint">{t('Остаток неизвестен')}</span> : avail <= 0
             ? <Badge tone="danger">нет на складе</Badge>
-            : <Badge tone={avail < 5 ? 'warning' : 'neutral'} icon={false}>на складе ~{fmtQty(avail)}</Badge>}
-          {age && <span className="faint"> · {it.stock_source === 'demo' ? 'демо-проекция, ' : ''}обновлено {age} назад</span>}
+            : <Badge tone={avail < 5 ? 'warning' : 'neutral'} icon={false}>{t('на складе ~{{n}}', { n: fmtQty(avail) })}</Badge>}
+          {age && <span className="faint"> · {it.stock_source === 'demo' ? `${t('демо-проекция,')} ` : ''}{t('обновлено {{age}} назад', { age })}</span>}
         </div>
       </div>
       <div className="card-body" style={{ borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <QtyInput value={qty} step={step} min={min} onChange={setQty} label={`Количество: ${it.name}`} />
         <Button size="sm" variant={inCart ? 'secondary' : 'primary'} loading={busy} disabled={invalid || qty <= 0} onClick={() => onSet(qty)}>
-          {inCart ? (inCart === qty ? 'В корзине' : 'Изменить') : t('В корзину')}
+          {inCart ? t(inCart === qty ? 'В корзине' : 'Изменить') : t('В корзину')}
         </Button>
-        {invalid && <span className="faint" role="alert" style={{ color: 'var(--danger)' }}>Кратно {fmtQty(step)}, не меньше {fmtQty(min)}</span>}
+        {invalid && <span className="faint" role="alert" style={{ color: 'var(--danger)' }}>{t('Кратно {{s}}, не меньше {{m}}', { s: fmtQty(step), m: fmtQty(min) })}</span>}
       </div>
     </div>
   );
@@ -179,8 +179,8 @@ export function CatalogPage() {
                       </li>
                     ))}
                   </ul>
-                  <div className="row between" style={{ marginTop: 12 }}><span>Предварительно</span><Money minor={total} currency={currency} strong /></div>
-                  <div className="faint" style={{ marginBottom: 12 }}>Итог, цены и кратность проверит сервер при отправке.</div>
+                  <div className="row between" style={{ marginTop: 12 }}><span>{t('Предварительно')}</span><Money minor={total} currency={currency} strong /></div>
+                  <div className="faint" style={{ marginBottom: 12 }}>{t('Итог, цены и кратность проверит сервер при отправке.')}</div>
                   <Field label={t('Адрес доставки')}>{(id) => <Input id={id} value={address} onChange={(e) => setAddress(e.target.value)} />}</Field>
                   <Field label={t('Контакт получателя')}>{(id) => <Input id={id} value={contact} onChange={(e) => setContact(e.target.value)} />}</Field>
                   <Field label={t('Комментарий')}>{(id) => <Textarea id={id} rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />}</Field>
@@ -188,7 +188,7 @@ export function CatalogPage() {
                 </>
               )}
             </Card>
-            <div style={{ marginTop: 12 }} className="faint">Остатки — <DemoBadge label="Демо" /> проекция склада; резерв подтверждает склад после передачи заказа.</div>
+            <div style={{ marginTop: 12 }} className="faint"><DemoBadge label="Демо" /> {t('Остатки — проекция склада; резерв подтверждает склад после передачи заказа.')}</div>
           </div>
         </div>
       </div>
@@ -207,7 +207,7 @@ export function CatalogPage() {
         ]}
       >
         {lineErrors.size > 0 && <Alert tone="danger" title="Проверьте позиции корзины">Ошибки отмечены в корзине.</Alert>}
-        <p className="faint">Повторное нажатие не создаст второй заказ.</p>
+        <p className="faint">{t('Повторное нажатие не создаст второй заказ.')}</p>
       </ConfirmDialog>
     </>
   );

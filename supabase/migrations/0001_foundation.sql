@@ -709,6 +709,7 @@ $$;
 -- Список пользователей для управления доступом (с email) — только access.manage.
 create function public.admin_users() returns table (id uuid, full_name text, email text, status text, is_demo boolean, assignments jsonb)
 language plpgsql stable security definer set search_path = public, app_private, pg_temp as $$
+#variable_conflict use_column
 begin
   perform app_private.require_user();
   if not app_private.has_perm_anywhere('access.manage') then perform app_private.fail('forbidden', 'Недостаточно прав'); end if;

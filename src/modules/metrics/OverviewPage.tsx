@@ -14,7 +14,7 @@ function Value({ v }: { v: unknown }) {
   if (Array.isArray(v)) {
     if (!v.length) return <>0</>;
     return (
-      <span style={{ display: 'flex', flexDirection: 'column' }}>
+      <span style={{ display: 'flex', flexDirection: 'column', fontSize: 'var(--fs-l)', gap: 2 }}>
         {v.map((x: { currency: string; amount_minor?: string; collected_minor?: string; due_minor?: string; count?: number }) => (
           <span key={x.currency}>
             {x.amount_minor !== undefined && <Money minor={x.amount_minor} currency={x.currency} />}

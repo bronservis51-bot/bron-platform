@@ -74,7 +74,7 @@ export function SetupPage() {
           <h1 style={{ marginBottom: 12 }}>Сборка не подключена к базе</h1>
           <p className="muted">Эта сборка не содержит адреса проекта Supabase, поэтому работающих операций нет. Это не демонстрация, а признак незавершённой настройки.</p>
           <ol>
-            <li>Создайте проект Supabase Free и примените SQL из <span className="mono">supabase/bundle.sql</span>.</li>
+            <li>Создайте проект Supabase Free и примените миграции: <span className="mono">npm run db:apply -- --seed</span> (или SQL из <span className="mono">npm run sql:bundle</span>).</li>
             <li>Укажите <span className="mono">VITE_SUPABASE_URL</span> и <span className="mono">VITE_SUPABASE_PUBLISHABLE_KEY</span> в <span className="mono">.env.local</span>.</li>
             <li>Соберите и опубликуйте: <span className="mono">npm run deploy</span>.</li>
           </ol>

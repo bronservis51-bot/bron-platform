@@ -38,6 +38,7 @@ function useUnread() {
 
 function ContextSwitcher() {
   const { me, context, setContext } = useSession();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -46,7 +47,7 @@ function ContextSwitcher() {
     return () => document.removeEventListener('click', close);
   }, []);
   if (!me || me.assignments.length < 1) return null;
-  const label = context ? `${context.scope_name}` : me.assignments.length > 1 ? 'Вся моя работа' : me.assignments[0].scope_name;
+  const label = context ? `${context.scope_name}` : me.assignments.length > 1 ? t('Вся моя работа') : me.assignments[0].scope_name;
   return (
     <div style={{ position: 'relative', minWidth: 0 }} ref={ref}>
       <button className="ctx-btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)} title="Рабочий контекст: для какой точки или партнёра вы действуете">
@@ -74,6 +75,7 @@ function ContextSwitcher() {
 
 function UserMenu() {
   const { me, signOut } = useSession();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -91,7 +93,7 @@ function UserMenu() {
             <div className="faint">{me?.user.email}</div>
           </div>
           <div className="sep" />
-          <button role="menuitem" onClick={() => void signOut()}><LogOut size={16} aria-hidden />Выйти и очистить данные устройства</button>
+          <button role="menuitem" onClick={() => void signOut()}><LogOut size={16} aria-hidden />{t('Выйти и очистить данные устройства')}</button>
         </div>
       )}
     </div>
@@ -99,13 +101,14 @@ function UserMenu() {
 }
 
 function UpdateBanner() {
+  const { t } = useT();
   const { needRefresh: [need], updateServiceWorker } = useRegisterSW({ immediate: true });
   const [busy, setBusy] = useState(commandsInFlight());
   useEffect(() => onInFlightChange(setBusy), []);
   if (!need) return null;
   return (
     <div className="alert tone-info" role="status" style={{ margin: '12px 24px 0' }}>
-      <div className="alert-body">Доступна новая версия. Черновики сохранятся.</div>
+      <div className="alert-body">{t('Доступна новая версия. Черновики сохранятся.')}</div>
       <Button size="sm" variant="primary" disabled={busy > 0} onClick={() => void updateServiceWorker(true)}>
         {busy > 0 ? 'Дождитесь отправки…' : 'Обновить'}
       </Button>
@@ -143,28 +146,28 @@ export function Shell() {
 
   return (
     <div className="app">
-      <a href="#main" className="skip-link" onClick={(e) => { e.preventDefault(); mainRef.current?.focus(); }}>К содержимому</a>
+      <a href="#main" className="skip-link" onClick={(e) => { e.preventDefault(); mainRef.current?.focus(); }}>{t('К содержимому')}</a>
       <aside className="sidebar" aria-label="Основная навигация">
         <div className="brand">
           <span className="brand-name">Бронь Сервис</span>
-          <span className="brand-sub">Рабочий кабинет{isDemo ? ' · демо' : ''}</span>
+          <span className="brand-sub">{t('Рабочий кабинет')}{isDemo ? ' · demo' : ''}</span>
         </div>
         <nav className="nav">
           {groups.map(({ g, items }) => (
             <div key={g}>
-              {g !== 'work' && <div className="nav-group">{GROUP_TITLE[g]}</div>}
+              {g !== 'work' && <div className="nav-group">{t(GROUP_TITLE[g])}</div>}
               {items.map(link)}
             </div>
           ))}
         </nav>
-        <div style={{ marginTop: 'auto', paddingTop: 16 }} className="faint">Версия {config.version}</div>
+        <div style={{ marginTop: 'auto', paddingTop: 16 }} className="faint">{t('Версия')} {config.version}</div>
       </aside>
       <div className="main">
         <header className="topbar">
           <div className="grow" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <span className="hide-desktop" style={{ fontWeight: 700 }}>БС</span>
             <ContextSwitcher />
-            {isDemo && <span className="badge tone-demo hide-mobile" title="Синтетические данные и demo-интеграции">Демо-стенд</span>}
+            {isDemo && <span className="badge tone-demo hide-mobile" title={t('Синтетические данные и demo-интеграции')}>{t('Демо-стенд')}</span>}
           </div>
           {can('kb.read') && (
             <button className="icon-btn" aria-label="Поиск по базе знаний" onClick={() => navigate('/kb')}><Search size={20} /></button>
@@ -178,7 +181,7 @@ export function Shell() {
         {!online && (
           <div className="alert tone-warning" role="status" style={{ margin: '12px 24px 0' }}>
             <WifiOff size={18} aria-hidden />
-            <div className="alert-body">Нет сети. Можно читать открытые экраны и писать черновики; отправка — после восстановления связи. Финансовые операции только онлайн.</div>
+            <div className="alert-body">{t('Нет сети. Можно читать открытые экраны и писать черновики; отправка — после восстановления связи. Финансовые операции только онлайн.')}</div>
           </div>
         )}
         <UpdateBanner />
@@ -200,7 +203,7 @@ export function Shell() {
           <div className="sheet-backdrop" onClick={() => setMore(false)} />
           <div className="sheet" role="dialog" aria-label="Все разделы">
             <div className="row between" style={{ marginBottom: 8 }}>
-              <h2>Разделы</h2>
+              <h2>{t('Разделы')}</h2>
               <button className="icon-btn" aria-label="Закрыть" onClick={() => setMore(false)}><X size={20} /></button>
             </div>
             <nav className="nav">{nav.map(link)}</nav>

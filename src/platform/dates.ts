@@ -20,17 +20,24 @@ export function formatPeriod(v: string | null | undefined, locale = 'ru-RU'): st
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Относительный срок для бейджа: «через 2 дня», «просрочено на 3 ч». */
-export function dueInfo(due: string | null | undefined, now = new Date()): { label: string; tone: 'neutral' | 'warning' | 'danger' } {
-  if (!due) return { label: 'без срока', tone: 'neutral' };
+/** Относительный срок для бейджа: «через 2 дня», «просрочено на 3 ч» (RU/TR). */
+export function dueInfo(due: string | null | undefined, now = new Date(), lang = currentLang()): { label: string; tone: 'neutral' | 'warning' | 'danger'; span: string } {
+  const trk = lang === 'tr';
+  if (!due) return { label: trk ? 'süresiz' : 'без срока', tone: 'neutral', span: '' };
   const ms = new Date(due).getTime() - now.getTime();
   const abs = Math.abs(ms);
   const hours = Math.round(abs / 3_600_000);
   const days = Math.round(abs / 86_400_000);
-  const span = hours < 1 ? 'меньше часа' : hours < 36 ? `${hours} ч` : `${days} ${plural(days, 'день', 'дня', 'дней')}`;
-  if (ms < 0) return { label: `просрочено на ${span}`, tone: 'danger' };
-  if (hours < 24) return { label: `через ${span}`, tone: 'warning' };
-  return { label: `через ${span}`, tone: 'neutral' };
+  const span = trk
+    ? hours < 1 ? '1 saatten az' : hours < 36 ? `${hours} sa` : `${days} gün`
+    : hours < 1 ? 'меньше часа' : hours < 36 ? `${hours} ч` : `${days} ${plural(days, 'день', 'дня', 'дней')}`;
+  if (ms < 0) return { label: trk ? `${span} gecikti` : `просрочено на ${span}`, tone: 'danger', span };
+  const label = trk ? `${span} içinde` : `через ${span}`;
+  return { label, tone: hours < 24 ? 'warning' : 'neutral', span };
+}
+
+function currentLang(): string {
+  return typeof document !== 'undefined' ? document.documentElement.lang : 'ru';
 }
 
 export function plural(n: number, one: string, few: string, many: string): string {

@@ -142,7 +142,7 @@ export function NewTicketPage() {
   return (
     <>
       <PageHeader back={{ to: '/support', label: t('Поддержка') }} title={t('Новое обращение')} sub="Обращение получит ответственного и срок первой реакции" />
-      {restored && <div style={{ marginBottom: 16 }}><Alert tone="info" action={<Button size="sm" variant="ghost" onClick={() => { setForm(EMPTY); setRestored(false); void drafts.remove(me!.user.id, draftKey); }}>Очистить</Button>}>Восстановлен несохранённый черновик.</Alert></div>}
+      {restored && <div style={{ marginBottom: 16 }}><Alert tone="info" action={<Button size="sm" variant="ghost" onClick={() => { setForm(EMPTY); setRestored(false); void drafts.remove(me!.user.id, draftKey); }}>Очистить</Button>}>{t('Восстановлен несохранённый черновик.')}</Alert></div>}
       <form onSubmit={submit} className="grid grid-main" noValidate>
         <Card>
           <div className="grid grid-2">
@@ -211,8 +211,8 @@ function TranslateButton({ messageId, target }: { messageId: string; target: str
   if (res) {
     return (
       <div style={{ marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 8 }}>
-        <div className="row"><DemoBadge label="Перевод (демо)" /><span className="faint">подготовленный текст, не машинный перевод</span></div>
-        <div>{res.available ? res.translated : 'Для этого сообщения демо-перевода нет.'}</div>
+        <div className="row"><DemoBadge label="Перевод (демо)" /><span className="faint">{t('подготовленный текст, не машинный перевод')}</span></div>
+        <div>{res.available ? res.translated : t('Для этого сообщения демо-перевода нет.')}</div>
       </div>
     );
   }
@@ -280,20 +280,20 @@ export function TicketPage() {
             <ActionError error={act.error} />
             <div className="grid grid-main">
               <div className="stack">
-                {k.status === 'waiting_partner' && isAuthor && <Alert tone="warning" title="Нужен ваш ответ">Ответьте в переписке — таймер решения приостановлен до вашего ответа.</Alert>}
-                {k.status === 'waiting_vendor' && <Alert tone="warning" title="Ожидаем внешнего поставщика">Срок решения продолжает идти; ответственный держит обращение на контроле.</Alert>}
+                {k.status === 'waiting_partner' && isAuthor && <Alert tone="warning" title="Нужен ваш ответ">{t('Ответьте в переписке — таймер решения приостановлен до вашего ответа.')}</Alert>}
+                {k.status === 'waiting_vendor' && <Alert tone="warning" title="Ожидаем внешнего поставщика">{t('Срок решения продолжает идти; ответственный держит обращение на контроле.')}</Alert>}
                 {k.status === 'resolved' && (
                   <Alert tone="success" title="Решение">
                     {k.resolution_reason}
-                    {k.kb_article_id && <div><Link to={`/kb/articles/${k.kb_article_id}`}>Инструкция по решению</Link></div>}
-                    {isAuthor && k.reopen_until && <div className="faint">Переоткрыть можно до {formatDateTime(k.reopen_until, intlLocale())}</div>}
+                    {k.kb_article_id && <div><Link to={`/kb/articles/${k.kb_article_id}`}>{t('Инструкция по решению')}</Link></div>}
+                    {isAuthor && k.reopen_until && <div className="faint">{t('Переоткрыть можно до')} {formatDateTime(k.reopen_until, intlLocale())}</div>}
                   </Alert>
                 )}
                 <Card title="Переписка">
                   <div className="message" style={{ marginBottom: 12 }}>
                     <div className="who"><span>{names(k.created_by)}</span><span className="faint">{formatDateTime(k.created_at, intlLocale())}</span></div>
                     <div style={{ whiteSpace: 'pre-wrap' }}>{k.description}</div>
-                    {k.urgency_reason && <div className="faint">Срочность: {k.urgency_reason}</div>}
+                    {k.urgency_reason && <div className="faint">{t('Срочность')}: {k.urgency_reason}</div>}
                   </div>
                   {(msgs.data ?? []).map((m) => (
                     <div key={m.id} className={`message${m.author_id === me?.user.id ? ' mine' : ''}${m.internal ? ' internal' : ''}`} style={{ marginBottom: 12 }}>
@@ -328,19 +328,19 @@ export function TicketPage() {
                 <Card title="Обращение">
                   <KV items={[
                     [t('Точка'), loc?.name], [t('Категория'), t(category?.title ?? k.category)], ['Очередь', roles.name(k.queue_role)],
-                    ['Ответственный', names(k.assignee_id) ?? <span className="muted">ещё не назначен</span>],
+                    ['Ответственный', names(k.assignee_id) ?? <span className="muted">{t('ещё не назначен')}</span>],
                     ...(k.equipment_model ? [[t('Устройство или модель'), k.equipment_model] as [string, string]] : []),
-                    [t('Первая реакция до'), k.first_response_at ? <span key="f">дана {formatDateTime(k.first_response_at, intlLocale())}</span> : <Due key="f" at={k.first_response_due} />],
-                    [t('Решение до'), open ? (k.status === 'waiting_partner' ? <span key="r">таймер на паузе</span> : <Due key="r" at={k.resolve_due} />) : formatDateTime(k.resolved_at, intlLocale())],
+                    [t('Первая реакция до'), k.first_response_at ? <span key="f">{t('дана')} {formatDateTime(k.first_response_at, intlLocale())}</span> : <Due key="f" at={k.first_response_due} />],
+                    [t('Решение до'), open ? (k.status === 'waiting_partner' ? <span key="r">{t('таймер на паузе')}</span> : <Due key="r" at={k.resolve_due} />) : formatDateTime(k.resolved_at, intlLocale())],
                     ...(k.sla_paused_minutes ? [['Пауза SLA', `${k.sla_paused_minutes} мин (ожидание партнёра)`] as [string, string]] : []),
                     ...(k.reopen_count ? [['Переоткрыто', String(k.reopen_count)] as [string, string]] : []),
                   ]} />
                 </Card>
                 <Card title="Инструкции по теме">
-                  {kb.data?.length ? kb.data.map((a) => <div key={a.article_id} style={{ marginBottom: 6 }}><Link to={`/kb/articles/${a.article_id}`}>{a.title}</Link></div>) : <span className="muted">Нет привязанных статей</span>}
+                  {kb.data?.length ? kb.data.map((a) => <div key={a.article_id} style={{ marginBottom: 6 }}><Link to={`/kb/articles/${a.article_id}`}>{a.title}</Link></div>) : <span className="muted">{t('Нет привязанных статей')}</span>}
                 </Card>
                 <Card title="История">
-                  <Timeline items={timeline.map((e) => ({ at: e.at, who: names(e.actor_id) ?? 'Система', text: TICKET_EVENT[e.action] ?? e.action, comment: e.comment }))} />
+                  <Timeline items={timeline.map((e) => ({ at: e.at, who: names(e.actor_id) ?? t('Система'), text: TICKET_EVENT[e.action] ?? e.action, comment: e.comment }))} />
                 </Card>
               </div>
             </div>

@@ -15,7 +15,10 @@
     "seed:users": "node scripts/seed-users.mjs",
     "deploy": "node scripts/deploy-pages.mjs",
     "gen:contract": "node scripts/gen-contract.mjs",
-    "local:backend": "node scripts/local-backend.mjs"
+    "local:backend": "node scripts/local-backend.mjs",
+    "db:apply": "node scripts/db-apply.mjs",
+    "db:export": "node scripts/db-export.mjs",
+    "db:restore": "node scripts/db-restore.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.9",
@@ -24,6 +27,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "pg": "^8.23.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vite-plugin-pwa": "^2.0.0",
