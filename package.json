@@ -1,0 +1,22 @@
+{
+  "name": "bron-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:db": "vitest run tests/db",
+    "sql:bundle": "node scripts/bundle-sql.mjs",
+    "seed:users": "node scripts/seed-users.mjs",
+    "deploy": "node scripts/deploy-pages.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
