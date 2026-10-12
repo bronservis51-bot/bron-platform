@@ -1,8 +1,10 @@
-# Вариант «один публичный репозиторий» (ADR-0002, Q-01): сборка и публикация на GitHub Pages.
+# Публикация на GitHub Pages из публичного репозитория (ADR-0002, решение Q-01): при каждом изменении main.
 # Настройте Settings → Secrets and variables → Actions → Variables:
 #   VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY (публичные значения), а Pages: Source = GitHub Actions.
 name: pages
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
