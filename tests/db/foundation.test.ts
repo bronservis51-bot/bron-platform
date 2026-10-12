@@ -79,3 +79,13 @@ describe('основание: доступ', () => {
     await t.admin(`select set_config('request.jwt.claims', '', false)`);
   });
 });
+
+describe('демо-назначения как в Supabase Auth', () => {
+  it('app_metadata, записанная отдельным UPDATE после создания пользователя, применяет назначения', async () => {
+    const [u] = await t.admin<{ id: string }>(`insert into auth.users(email, raw_user_meta_data) values ('fm@demo.example.com-late', '{}') returning id`);
+    await t.admin(`insert into public.pending_assignment(email, role, scope_type, scope_code) values ('fm@demo.example.com-late', 'kb_editor', 'company', null)`);
+    expect(await t.admin(`select 1 from public.role_assignment where user_id = $1`, [u.id])).toHaveLength(0);
+    await t.admin(`update auth.users set raw_app_meta_data = '{"provider":"email","demo_seed":true}' where id = $1`, [u.id]);
+    expect(await t.admin(`select role from public.role_assignment where user_id = $1`, [u.id])).toEqual([{ role: 'kb_editor' }]);
+  });
+});
