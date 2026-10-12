@@ -341,12 +341,18 @@ create table public.audit_event (
 create index on public.audit_event (entity_type, entity_id);
 create index on public.audit_event (at desc);
 
+-- Идентификатор запроса клиента (заголовок x-request-id, PostgREST передаёт заголовки в request.headers) — correlation ID (API-04).
+create function app_private.request_id() returns uuid
+language sql stable as $$
+  select case when v ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then v::uuid end
+  from (select coalesce(nullif(current_setting('request.headers', true), '')::json ->> 'x-request-id', '') as v) h
+$$;
+
 create function app_private.audit(p_action text, p_entity_type text, p_entity_id uuid,
   p_partner uuid default null, p_diff jsonb default null, p_reason text default null)
 returns void language sql security definer set search_path = public, pg_temp as $$
   insert into public.audit_event(actor_id, action, entity_type, entity_id, partner_id, diff, reason, correlation_id)
-  values (auth.uid(), p_action, p_entity_type, p_entity_id, p_partner, p_diff, p_reason,
-          nullif(current_setting('app.correlation_id', true), '')::uuid)
+  values (auth.uid(), p_action, p_entity_type, p_entity_id, p_partner, p_diff, p_reason, app_private.request_id())
 $$;
 
 create table public.command_log (

@@ -1,0 +1,46 @@
+// Навигация по разрешённым модулям (UX-03): сервер всё равно проверяет доступ, меню лишь не показывает недоступное.
+import { BarChart3, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShoppingCart, Store, Rocket } from 'lucide-react';
+import type { ComponentType } from 'react';
+
+export interface NavItem {
+  to: string;
+  label: string;
+  icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
+  group: 'work' | 'franchise' | 'knowledge' | 'control';
+  visible: (can: (p: string) => boolean, isStaff: boolean) => boolean;
+}
+
+export const NAV: NavItem[] = [
+  { to: '/', label: 'Сегодня', icon: Home, group: 'work', visible: () => true },
+  { to: '/tasks', label: 'Моя работа', icon: ClipboardList, group: 'work', visible: (can) => can('task.read') },
+  { to: '/support', label: 'Поддержка', icon: Headset, group: 'work', visible: (can) => can('ticket.read') || can('ticket.create') },
+  { to: '/catalog', label: 'Каталог', icon: ShoppingCart, group: 'work', visible: (can) => can('order.create') && can('catalog.read') },
+  { to: '/orders', label: 'Заказы', icon: Package, group: 'work', visible: (can) => can('order.read') || can('order.create') },
+  { to: '/partners', label: 'Партнёры и точки', icon: Store, group: 'franchise', visible: (can) => can('org.read') },
+  { to: '/openings', label: 'Открытия', icon: Rocket, group: 'franchise', visible: (can) => can('opening.read') },
+  { to: '/royalties', label: 'Роялти', icon: Landmark, group: 'franchise', visible: (can) => can('royalty.read') },
+  { to: '/kb', label: 'База знаний', icon: BookOpen, group: 'knowledge', visible: (can) => can('kb.read') },
+  { to: '/learning', label: 'Обучение', icon: GraduationCap, group: 'knowledge', visible: (can) => can('kb.read') },
+  { to: '/overview', label: 'Обзор', icon: BarChart3, group: 'control', visible: (can) => can('metrics.read') },
+  { to: '/settings', label: 'Настройки', icon: Settings, group: 'control',
+    visible: (can) => can('integration.operate') || can('access.manage') || can('audit.read') || can('metrics.read') },
+];
+
+export const GROUP_TITLE: Record<NavItem['group'], string> = {
+  work: 'Работа', franchise: 'Франшиза', knowledge: 'Знания', control: 'Управление',
+};
+
+/** 4 основных пункта мобильной навигации по роли (UX-03), остальное — в «Ещё». */
+export function primaryMobile(items: NavItem[], can: (p: string) => boolean): NavItem[] {
+  const by = (to: string) => items.find((i) => i.to === to);
+  const order = can('royalty.publish')
+    ? ['/', '/royalties', '/tasks', '/support']
+    : can('royalty.report.submit')
+      ? ['/', '/catalog', '/support', '/royalties']
+      : can('order.approve')
+        ? ['/', '/orders', '/tasks', '/support']
+        : ['/', '/tasks', '/support', '/kb'];
+  const picked = order.map(by).filter((x): x is NavItem => Boolean(x));
+  for (const i of items) if (picked.length < 4 && !picked.includes(i)) picked.push(i);
+  return picked.slice(0, 4);
+}

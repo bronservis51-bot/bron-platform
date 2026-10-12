@@ -1,15 +1,9 @@
 // Локальная БД для проверок (ADR-0006): PGlite + эмуляция Supabase + те же миграции и seed.
-import { PGlite } from '@electric-sql/pglite';
-import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import type { PGlite } from '@electric-sql/pglite';
+// @ts-expect-error — общий модуль на JS без деклараций типов
+import { createDb, demoUsers } from '../../scripts/db-lib.mjs';
 
-const root = resolve(import.meta.dirname, '../..');
-const migrationsDir = join(root, 'supabase/migrations');
-
-export function migrationFiles(): string[] {
-  return readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort().map((f) => join(migrationsDir, f));
-}
+export const DEMO_USERS: { email: string; name: string; locale?: string }[] = demoUsers;
 
 export interface TestDb {
   db: PGlite;
@@ -22,60 +16,8 @@ export interface TestDb {
   expectError(email: string, sql: string, code: string, params?: unknown[]): Promise<string>;
 }
 
-export const DEMO_USERS: { email: string; name: string; locale?: string }[] = [
-  { email: 'founder@demo.example.com', name: 'Руководитель Демо' },
-  { email: 'head@demo.example.com', name: 'Руководитель направления Демо' },
-  { email: 'fm@demo.example.com', name: 'Менеджер франшизы Демо' },
-  { email: 'finance1@demo.example.com', name: 'Финансист Демо 1' },
-  { email: 'finance2@demo.example.com', name: 'Финансист Демо 2' },
-  { email: 'supply@demo.example.com', name: 'Снабженец Демо' },
-  { email: 'warehouse@demo.example.com', name: 'Кладовщик Демо' },
-  { email: 'tech@demo.example.com', name: 'Техспециалист Демо' },
-  { email: 'designer@demo.example.com', name: 'Дизайнер лекал Демо' },
-  { email: 'hr@demo.example.com', name: 'HR Демо' },
-  { email: 'editor@demo.example.com', name: 'Редактор знаний Демо' },
-  { email: 'sysadmin@demo.example.com', name: 'Администратор Демо' },
-  { email: 'manager.north@demo.example.com', name: 'Управляющий Север Демо' },
-  { email: 'staff.north@demo.example.com', name: 'Сотрудник Север Демо' },
-  { email: 'alpha.owner@demo.example.com', name: 'Владелец Альфа Демо' },
-  { email: 'alpha.staff@demo.example.com', name: 'Сотрудник Альфа Демо' },
-  { email: 'beta.owner@demo.example.com', name: 'Владелец Бета Демо' },
-  { email: 'gamma.owner@demo.example.com', name: 'Gama Sahibi Demo', locale: 'tr' },
-];
-
 export async function createTestDb(opts: { seed?: boolean; users?: boolean } = {}): Promise<TestDb> {
-  const { seed = true, users = true } = opts;
-  const db = new PGlite({ extensions: { pg_trgm } });
-  await db.exec(readFileSync(join(root, 'supabase/tests-shim/00_supabase_shim.sql'), 'utf8'));
-  for (const f of migrationFiles()) {
-    try {
-      await db.exec(readFileSync(f, 'utf8'));
-    } catch (e) {
-      throw new Error(`Миграция ${f.split('/').pop()}: ${(e as Error).message}`);
-    }
-  }
-  if (seed) {
-    const seedFile = join(root, 'supabase/seed/seed.sql');
-    try {
-      await db.exec(readFileSync(seedFile, 'utf8'));
-    } catch (e) {
-      throw new Error(`Seed: ${(e as Error).message}`);
-    }
-    if (users) {
-      for (const u of DEMO_USERS) {
-        await db.query(
-          `insert into auth.users(email, raw_user_meta_data, raw_app_meta_data) values ($1, $2, $3)`,
-          [u.email, JSON.stringify({ full_name: u.name, locale: u.locale ?? 'ru' }), JSON.stringify({ demo_seed: true })],
-        );
-      }
-      try {
-        await db.exec(readFileSync(join(root, 'supabase/seed/seed_after_users.sql'), 'utf8'));
-      } catch (e) {
-        throw new Error(`Seed после пользователей: ${(e as Error).message}`);
-      }
-    }
-  }
-
+  const db: PGlite = await createDb(opts);
   const ids = new Map<string, string>();
   async function userId(email: string): Promise<string> {
     if (!ids.has(email)) {

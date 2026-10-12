@@ -1,0 +1,75 @@
+[
+  {
+    "email": "founder@demo.example.com",
+    "name": "Руководитель Демо"
+  },
+  {
+    "email": "head@demo.example.com",
+    "name": "Руководитель направления Демо"
+  },
+  {
+    "email": "fm@demo.example.com",
+    "name": "Менеджер франшизы Демо"
+  },
+  {
+    "email": "finance1@demo.example.com",
+    "name": "Финансист Демо 1"
+  },
+  {
+    "email": "finance2@demo.example.com",
+    "name": "Финансист Демо 2"
+  },
+  {
+    "email": "supply@demo.example.com",
+    "name": "Снабженец Демо"
+  },
+  {
+    "email": "warehouse@demo.example.com",
+    "name": "Кладовщик Демо"
+  },
+  {
+    "email": "tech@demo.example.com",
+    "name": "Техспециалист Демо"
+  },
+  {
+    "email": "designer@demo.example.com",
+    "name": "Дизайнер лекал Демо"
+  },
+  {
+    "email": "hr@demo.example.com",
+    "name": "HR Демо"
+  },
+  {
+    "email": "editor@demo.example.com",
+    "name": "Редактор знаний Демо"
+  },
+  {
+    "email": "sysadmin@demo.example.com",
+    "name": "Администратор Демо"
+  },
+  {
+    "email": "manager.north@demo.example.com",
+    "name": "Управляющий Север Демо"
+  },
+  {
+    "email": "staff.north@demo.example.com",
+    "name": "Сотрудник Север Демо"
+  },
+  {
+    "email": "alpha.owner@demo.example.com",
+    "name": "Владелец Альфа Демо"
+  },
+  {
+    "email": "alpha.staff@demo.example.com",
+    "name": "Сотрудник Альфа Демо"
+  },
+  {
+    "email": "beta.owner@demo.example.com",
+    "name": "Владелец Бета Демо"
+  },
+  {
+    "email": "gamma.owner@demo.example.com",
+    "name": "Gama Sahibi Demo",
+    "locale": "tr"
+  }
+]

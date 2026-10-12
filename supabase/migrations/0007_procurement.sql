@@ -557,6 +557,23 @@ begin
   return 'processed';
 end $$;
 
+-- Контракт для модуля Integrations: результат передачи заказа на склад (ARCH-02).
+create function app_private.order_transfer_result(p_order uuid, p_status text, p_result jsonb) returns void
+language plpgsql security definer set search_path = public, app_private, pg_temp as $$
+begin
+  if p_status = 'done' then
+    update public.sales_order set transfer_status = 'sent', updated_at = now(), revision = revision + 1 where id = p_order;
+    perform app_private.order_log(p_order, 'sent_to_warehouse', p_result,
+      case when (p_result ->> 'reconciled')::boolean then 'Документ найден при сверке — повтор не создавался' else 'Передан на склад' end);
+  elsif p_status = 'unknown' then
+    update public.sales_order set transfer_status = 'needs_reconciliation', updated_at = now(), revision = revision + 1 where id = p_order;
+    perform app_private.order_log(p_order, 'transfer_unknown', p_result, 'Результат передачи неизвестен — будет сверка');
+  else
+    update public.sales_order set transfer_status = 'failed', updated_at = now(), revision = revision + 1 where id = p_order;
+    perform app_private.order_log(p_order, 'transfer_failed', p_result, 'Склад недоступен — повтор автоматически');
+  end if;
+end $$;
+
 ------------------------------------------------------------------------------
 -- RLS и права
 ------------------------------------------------------------------------------

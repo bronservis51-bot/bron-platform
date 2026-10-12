@@ -585,6 +585,15 @@ begin
   return n;
 end $$;
 
+-- Контракт для модуля Integrations: результат сохранения корпоративной копии (KB-14).
+create function app_private.article_export_result(p_article uuid, p_revision uuid, p_ok boolean, p_error text) returns void
+language sql security definer set search_path = public, pg_temp as $$
+  update public.article set export_status = case when p_ok then 'done' else 'failed' end,
+    export_error = case when p_ok then null else p_error end,
+    exported_at = case when p_ok then now() else exported_at end
+  where id = p_article and published_revision_id = p_revision
+$$;
+
 ------------------------------------------------------------------------------
 -- RLS и права
 ------------------------------------------------------------------------------

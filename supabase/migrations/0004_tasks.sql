@@ -577,6 +577,31 @@ begin
   perform app_private.task_after_change(t);
 end $$;
 
+-- Публикация новой версии шаблона: начатые проекты сохраняют свою версию (CORE-03, AT-04).
+create function public.workflow_template_publish(p_template_code text, p_definition jsonb, p_note text) returns uuid
+language plpgsql security definer set search_path = public, app_private, pg_temp as $$
+declare v_user uuid := app_private.require_user(); v_tpl uuid; v_ver int; v_id uuid;
+begin
+  if not exists (select 1 from app_private.active_assignments() a join public.role_permission rp on rp.role = a.role
+                 where rp.permission = 'opening.approve' and a.scope_type in ('company', 'direction')) then
+    perform app_private.fail('forbidden', 'Недостаточно прав для изменения шаблона');
+  end if;
+  if coalesce(trim(p_note), '') = '' then perform app_private.fail('validation', 'Опишите изменение', 'note'); end if;
+  select id into v_tpl from public.workflow_template where code = p_template_code;
+  if not found then perform app_private.fail('not-found', 'Шаблон не найден'); end if;
+  select coalesce(max(version), 0) + 1 into v_ver from public.workflow_template_version where template_id = v_tpl;
+  update public.workflow_template_version set status = 'retired' where template_id = v_tpl and status = 'published';
+  insert into public.workflow_template_version(template_id, version, status, definition, change_note, created_by, published_at)
+  values (v_tpl, v_ver, 'published', p_definition, p_note, v_user, now()) returning id into v_id;
+  perform app_private.audit('workflow.publish', 'workflow_template', v_tpl, null, jsonb_build_object('version', v_ver), p_note);
+  return v_id;
+end $$;
+
+create function app_private.workflow_complete(p_instance uuid) returns void
+language sql security definer set search_path = public, pg_temp as $$
+  update public.workflow_instance set status = 'completed' where id = p_instance
+$$;
+
 ------------------------------------------------------------------------------
 -- RLS и права
 ------------------------------------------------------------------------------
@@ -601,6 +626,7 @@ insert into app_private.client_table(tbl) values ('public.workflow_template'), (
 insert into app_private.client_command(fn) values
   ('public.task_take(uuid, int)'), ('public.task_assign(uuid, uuid, int)'), ('public.task_transition(uuid, text, text, int)'),
   ('public.task_complete(uuid, text, int)'), ('public.task_cancel(uuid, text)'), ('public.task_reopen(uuid, text)'),
-  ('public.task_comment(uuid, text)'), ('public.task_attach_prepare(uuid, text, text, bigint, text)');
+  ('public.task_comment(uuid, text)'), ('public.task_attach_prepare(uuid, text, text, bigint, text)'),
+  ('public.workflow_template_publish(text, jsonb, text)');
 insert into app_private.policy_helper(fn) values ('app_private.can_read_task(public.task)');
 select app_private.apply_grants();

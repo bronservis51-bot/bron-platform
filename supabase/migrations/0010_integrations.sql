@@ -84,21 +84,10 @@ begin
   if o.topic = 'warehouse.create_order' then
     if v_status = 'done' then
       perform app_private.map_external('moysklad', 'sales_order', o.aggregate_id, p_result ->> 'external_id');
-      update public.sales_order set transfer_status = 'sent', updated_at = now(), revision = revision + 1 where id = o.aggregate_id;
-      perform app_private.order_log(o.aggregate_id, 'sent_to_warehouse', p_result,
-        case when (p_result ->> 'reconciled')::boolean then 'Документ найден при сверке — повтор не создавался' else 'Передан на склад' end);
-    elsif v_status = 'unknown' then
-      update public.sales_order set transfer_status = 'needs_reconciliation', updated_at = now(), revision = revision + 1 where id = o.aggregate_id;
-      perform app_private.order_log(o.aggregate_id, 'transfer_unknown', p_result, 'Результат передачи неизвестен — будет сверка');
-    else
-      update public.sales_order set transfer_status = 'failed', updated_at = now(), revision = revision + 1 where id = o.aggregate_id;
-      perform app_private.order_log(o.aggregate_id, 'transfer_failed', p_result, 'Склад недоступен — повтор автоматически');
     end if;
+    perform app_private.order_transfer_result(o.aggregate_id, v_status, p_result);
   elsif o.topic = 'drive.export_article' then
-    update public.article set export_status = case v_status when 'done' then 'done' else 'failed' end,
-      export_error = case when v_status = 'done' then null else p_result ->> 'error' end,
-      exported_at = case when v_status = 'done' then now() else exported_at end
-    where id = o.aggregate_id and published_revision_id = (o.payload ->> 'revision_id')::uuid;
+    perform app_private.article_export_result(o.aggregate_id, (o.payload ->> 'revision_id')::uuid, v_status = 'done', p_result ->> 'error');
   end if;
 end $$;
 
