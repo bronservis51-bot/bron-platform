@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { AlertTriangle, ArrowLeft, Ban, CheckCircle2, CircleDashed, Clock, FlaskConical, Inbox, Info, Lock, RefreshCw, SearchX, WifiOff } from 'lucide-react';
 import { AppError, toAppError } from '../platform/backend';
 import { dueInfo, formatDateTime } from '../platform/dates';
-import { formatMoney, type MinorInput } from '../platform/money';
+import { formatMoney, formatMoneyShort, minorToDecimal, parseMoney, type MinorInput } from '../platform/money';
 import { intlLocale, t as tr, useT } from '../platform/i18n';
 
 /** Строковые подписи компонентов переводятся автоматически (RU/TR, SUP-08); узлы React — как есть. */
@@ -13,7 +13,7 @@ const tx = (n: ReactNode): ReactNode => (typeof n === 'string' ? tr(n) : n);
 export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'demo';
 
 export function Button({ variant = 'secondary', size, loading, block, children, ...rest }:
-  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm'; loading?: boolean; block?: boolean }) {
+  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'silver'; size?: 'sm'; loading?: boolean; block?: boolean }) {
   return (
     <button
       type="button"
@@ -28,16 +28,18 @@ export function Button({ variant = 'secondary', size, loading, block, children, 
   );
 }
 
-export function LinkButton({ to, variant = 'secondary', size, children }: { to: string; variant?: 'primary' | 'secondary' | 'ghost'; size?: 'sm'; children: ReactNode }) {
+export function LinkButton({ to, variant = 'secondary', size, children }: { to: string; variant?: 'primary' | 'secondary' | 'ghost' | 'silver'; size?: 'sm'; children: ReactNode }) {
   return <Link to={to} className={['btn', `btn-${variant}`, size === 'sm' && 'btn-sm'].filter(Boolean).join(' ')}>{Array.isArray(children) ? children.map((c) => tx(c)) : tx(children)}</Link>;
 }
 
-export function Card({ title, actions, children, className, bodyless }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyless?: boolean }) {
+export function Card({ title, actions, children, className, bodyless, icon, iconTone }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyless?: boolean; icon?: ReactNode; iconTone?: 'silver' | 'dark' | 'danger' }) {
   return (
     <section className={['card', className].filter(Boolean).join(' ')}>
       {(title || actions) && (
         <div className="card-header">
-          {typeof title === 'string' ? <h2>{tr(title)}</h2> : title}
+          {typeof title === 'string'
+            ? <h2 className="card-title">{icon && <span className={`icon-tile${iconTone && iconTone !== 'silver' ? ` ${iconTone}` : ''}`} aria-hidden>{icon}</span>}{tr(title)}</h2>
+            : title}
           {actions && <div className="row">{actions}</div>}
         </div>
       )}
@@ -226,9 +228,30 @@ export function Chips<T extends string>({ options, value, onChange, label }: { o
   );
 }
 
-export function Money({ minor, currency, strong }: { minor: MinorInput; currency: string; strong?: boolean }) {
-  const s = formatMoney(minor, currency, intlLocale());
+export function Money({ minor, currency, strong, short }: { minor: MinorInput; currency: string; strong?: boolean; short?: boolean }) {
+  const s = (short ? formatMoneyShort : formatMoney)(minor, currency, intlLocale());
   return strong ? <strong className="num">{s}</strong> : <span className="num">{s}</span>;
+}
+
+/** Ввод суммы в рублях/тенге/лирах с запятой; наружу — минорные единицы строкой (без float). */
+export function MoneyInput({ id, value, onChange, currency, invalid }: { id: string; value: string; onChange: (minor: string) => void; currency: string; invalid?: boolean }) {
+  const show = (v: string) => (v && v !== '0' ? minorToDecimal(v, currency).replace('.', ',').replace(/,00$/, '') : '');
+  const [text, setText] = useState(() => show(value));
+  const [bad, setBad] = useState(false);
+  // Значение изменили снаружи (например, «Заполнить из смен») — показать его, не трогая ввод, который уже ему равен
+  useEffect(() => {
+    const cur = text.trim() === '' ? 0n : parseMoney(text, currency);
+    if (cur === null || cur.toString() !== (value || '0')) { setText(show(value)); setBad(false); }
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Input id={id} inputMode="decimal" value={text} aria-invalid={bad || invalid || undefined}
+      onChange={(e) => {
+        setText(e.target.value);
+        const v = e.target.value.trim() === '' ? 0n : parseMoney(e.target.value, currency);
+        setBad(v === null);
+        if (v !== null) onChange(v.toString());
+      }} />
+  );
 }
 
 export function Due({ at, done, timeZone }: { at: string | null | undefined; done?: boolean; timeZone?: string }) {

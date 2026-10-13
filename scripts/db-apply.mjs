@@ -21,7 +21,11 @@ const done = new Map((await client.query('select name, checksum from app_private
 async function apply(name, sql) {
   const sum = createHash('sha256').update(sql).digest('hex');
   if (done.has(name)) {
-    if (done.get(name) !== sum) throw new Error(`${name} уже применена, но файл изменён. Новые изменения — новой миграцией.`);
+    if (done.get(name) !== sum) {
+      // Демо-данные уже лежат в базе; правка файла seed влияет только на новые установки
+      if (name.startsWith('seed')) { console.log(`  = ${name} (файл изменён после применения — для новых установок)`); return; }
+      throw new Error(`${name} уже применена, но файл изменён. Новые изменения — новой миграцией.`);
+    }
     console.log(`  = ${name}`);
     return;
   }
@@ -41,6 +45,7 @@ try {
   for (const f of migrationFiles()) await apply(f.split('/').pop(), readFileSync(f, 'utf8'));
   if (withSeed) await apply('seed.sql', readFileSync(join(root, 'supabase/seed/seed.sql'), 'utf8'));
   if (process.argv.includes('--after-users')) await apply('seed_after_users.sql', readFileSync(join(root, 'supabase/seed/seed_after_users.sql'), 'utf8'));
+  if (process.argv.includes('--after-users') || process.argv.includes('--seed-v2')) await apply('seed_v2.sql', readFileSync(join(root, 'supabase/seed/seed_v2.sql'), 'utf8'));
   console.log('Готово.');
 } finally {
   await client.end();

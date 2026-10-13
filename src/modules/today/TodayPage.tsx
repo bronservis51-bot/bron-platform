@@ -1,13 +1,16 @@
 // «Сегодня» (CORE-01, UX-02): что сделать, до какого срока, для какой точки и что мешает.
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { AlertTriangle, BookOpen, CheckCircle2, FileText, Headset, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarX, CheckCircle2, ClipboardList, FileText, GraduationCap, Headset, Inbox, Landmark, PencilLine, Rocket, ShoppingCart, Stamp, Wallet } from 'lucide-react';
+import { BrandPattern, LogoMark } from '../../ui/brand';
 import { command } from '../../platform/backend';
 import { useScopeFilter, useSession } from '../../platform/session';
 import { formatDate, formatPeriod } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
-import { Badge, Card, DataState, Due, EmptyState, LinkButton, Money, PageHeader } from '../../ui';
+import { Badge, Card, DataState, Due, EmptyState, LinkButton, Money } from '../../ui';
 import { st, TASK_STATUS, TICKET_STATUS, URGENCY } from '../../ui/status';
+import type { MyEarnings } from '../sales/api';
+import { pct } from '../sales/api';
 
 interface Today {
   my_tasks: { id: string; number: string; title: string; status: string; due_at: string | null; priority: string; location_name: string | null; partner_name: string | null; status_reason: string | null }[];
@@ -19,6 +22,7 @@ interface Today {
   critical: { id: string; title: string; body: string | null; link: string | null; created_at: string }[];
   openings: { id: string; number: string; status: string; planned_open_on: string; location_name: string; done_tasks: number; total_tasks: number; critical_open: number; overdue_tasks: number; date_at_risk: boolean }[];
   balances: { accrual_id: string; number: string; period: string; currency: string; outstanding_minor: string; due_on: string; overdue: boolean }[];
+  sales?: { my: MyEarnings | null; missing: { location_id: string; location_name: string; days: number }[] };
 }
 
 export function TodayPage() {
@@ -35,18 +39,28 @@ export function TodayPage() {
 
   return (
     <>
-      <PageHeader
-        title={t('Сегодня')}
-        sub={<>{date}{first ? ` · ${first}` : ''}{context ? ` · ${context.scope_name}` : ''}</>}
-        actions={
-          <>
-            {(can('ticket.create')) && <LinkButton to="/support/new" size="sm"><Headset size={16} aria-hidden />{t('Новое обращение')}</LinkButton>}
-            {can('order.create') && <LinkButton to="/catalog" size="sm"><ShoppingCart size={16} aria-hidden />{t('Заказать')}</LinkButton>}
-            {can('royalty.report.submit') && <LinkButton to="/royalties" size="sm"><FileText size={16} aria-hidden />{t('Сдать отчёт')}</LinkButton>}
-            {can('kb.read') && <LinkButton to="/kb" size="sm"><BookOpen size={16} aria-hidden />{t('Найти инструкцию')}</LinkButton>}
-          </>
-        }
-      />
+      <section className="hero" aria-labelledby="today-title">
+        <BrandPattern className="hero-pattern" rows={4} cols={6} />
+        <span className="hero-mark"><LogoMark height={190} /></span>
+        <h1 id="today-title">{first ? t('Добрый день, {{name}}', { name: first }) : t('Сегодня')}</h1>
+        <div className="hero-sub">{date}{context ? ` · ${context.scope_name}` : ''}</div>
+        <div className="hero-actions">
+          {can('sales.enter') && <LinkButton to="/sales" size="sm" variant="silver"><Wallet size={16} aria-hidden />{t('Внести выручку')}</LinkButton>}
+          {can('ticket.create') && <LinkButton to="/support/new" size="sm"><Headset size={16} aria-hidden />{t('Новое обращение')}</LinkButton>}
+          {can('order.create') && <LinkButton to="/catalog" size="sm"><ShoppingCart size={16} aria-hidden />{t('Заказать')}</LinkButton>}
+          {can('royalty.report.submit') && <LinkButton to="/royalties" size="sm"><FileText size={16} aria-hidden />{t('Сдать отчёт')}</LinkButton>}
+          {can('kb.read') && <LinkButton to="/kb" size="sm"><BookOpen size={16} aria-hidden />{t('Найти инструкцию')}</LinkButton>}
+        </div>
+        {q.data && (
+          <div className="hero-kpis">
+            <a className="hero-kpi" href="#/tasks"><div className="v">{q.data.my_tasks.length}</div><div className="l">{t('Мои задачи')}</div></a>
+            <a className={`hero-kpi${q.data.my_tasks.some((x) => x.due_at && new Date(x.due_at) < new Date()) ? ' alert' : ''}`} href="#/tasks">
+              <div className="v">{q.data.my_tasks.filter((x) => x.due_at && new Date(x.due_at) < new Date()).length}</div><div className="l">{t('Просрочено')}</div></a>
+            <a className="hero-kpi" href="#/"><div className="v">{q.data.approvals.length}</div><div className="l">{t('Ждут моего решения')}</div></a>
+            <a className="hero-kpi" href="#/support"><div className="v">{q.data.tickets.length}</div><div className="l">{t('Обращения')}</div></a>
+          </div>
+        )}
+      </section>
       <DataState query={q} skeleton={6}>
         {(d) => {
           const nothing = !d.my_tasks.length && !d.queue_tasks.length && !d.tickets.length && !d.approvals.length && !d.acks.length && !d.critical.length && !d.drafts.length && !d.balances.length;
@@ -57,7 +71,7 @@ export function TodayPage() {
                   <Card><EmptyState icon={<CheckCircle2 size={22} aria-hidden />} title={t('Всё сделано')} text="Нет задач, согласований и обращений, требующих вашего действия." /></Card>
                 )}
                 {d.approvals.length > 0 && (
-                  <Card title={t('Ждут моего решения')} bodyless>
+                  <Card title={t('Ждут моего решения')} icon={<Stamp size={18} />} bodyless>
                     <ul className="list">
                       {d.approvals.map((a) => (
                         <li key={`${a.kind}-${a.id}`}>
@@ -73,7 +87,7 @@ export function TodayPage() {
                     </ul>
                   </Card>
                 )}
-                <Card title={t('Мои задачи')} actions={<Link to="/tasks">{t('Все задачи')}</Link>} bodyless>
+                <Card title={t('Мои задачи')} icon={<ClipboardList size={18} />} actions={<Link to="/tasks">{t('Все задачи')}</Link>} bodyless>
                   {d.my_tasks.length ? (
                     <ul className="list">
                       {d.my_tasks.map((x) => {
@@ -98,7 +112,7 @@ export function TodayPage() {
                   ) : <EmptyState title={t('Нет задач на сегодня')} text="Новые задачи из очереди появятся ниже." />}
                 </Card>
                 {d.tickets.length > 0 && (
-                  <Card title={t('Обращения')} actions={<Link to="/support">{t('Все')}</Link>} bodyless>
+                  <Card title={t('Обращения')} icon={<Headset size={18} />} actions={<Link to="/support">{t('Все')}</Link>} bodyless>
                     <ul className="list">
                       {d.tickets.map((k) => {
                         const [label, tone] = st(TICKET_STATUS, k.status);
@@ -119,7 +133,7 @@ export function TodayPage() {
                   </Card>
                 )}
                 {d.queue_tasks.length > 0 && (
-                  <Card title={t('Очередь моих ролей')} bodyless>
+                  <Card title={t('Очередь моих ролей')} icon={<Inbox size={18} />} bodyless>
                     <ul className="list">
                       {d.queue_tasks.map((x) => (
                         <li key={x.id}>
@@ -137,8 +151,36 @@ export function TodayPage() {
                 )}
               </div>
               <div className="stack">
+                {d.sales?.my && d.sales.my.locations.length > 0 && (() => {
+                  const my = d.sales.my;
+                  const tot = my.totals[0];
+                  const cur = tot?.currency ?? my.locations[0].currency;
+                  const todayDone = my.days.some((x) => x.day === my.locations[0].today);
+                  return (
+                    <Link to="/sales" className="money-card dark today-earn">
+                      <div className="row between"><span className="l">{t('Мой заработок за месяц')}</span><span className="icon-tile" style={{ width: 32, height: 32 }}><Wallet size={16} /></span></div>
+                      <div className="v"><Money minor={tot?.earnings_minor ?? 0} currency={cur} short /></div>
+                      <div className="s">{t('смен')}: {tot?.shifts ?? 0} · {t('ставка')} {pct(my.locations[0].rate_bp)}</div>
+                      <div className={`today-shift${todayDone ? ' done' : ''}`}>{todayDone ? t('Сегодняшняя смена внесена') : t('Внесите выручку за сегодня →')}</div>
+                    </Link>
+                  );
+                })()}
+                {d.sales && d.sales.missing.length > 0 && (
+                  <Card title={t('Не заполнена выручка')} icon={<CalendarX size={18} />} iconTone="danger" bodyless>
+                    <ul className="list">
+                      {d.sales.missing.map((m) => (
+                        <li key={m.location_id}>
+                          <Link className="list-item" to={`/sales?tab=location&location=${m.location_id}`}>
+                            <div className="main-col"><div className="title">{m.location_name}</div><div className="meta">{t('Пропущено дней в этом месяце')}: {m.days}</div></div>
+                            <div className="side"><Badge tone="warning" icon={false}>{t('дозаполнить')}</Badge></div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
                 {d.critical.length > 0 && (
-                  <Card title={<h2 className="row"><AlertTriangle size={18} color="var(--danger)" aria-hidden />{t('Критические события')}</h2>} bodyless>
+                  <Card title={t('Критические события')} icon={<AlertTriangle size={18} />} iconTone="danger" bodyless>
                     <ul className="list">
                       {d.critical.map((c) => (
                         <li key={c.id}>
@@ -151,7 +193,7 @@ export function TodayPage() {
                   </Card>
                 )}
                 {d.balances.length > 0 && (
-                  <Card title={t('К оплате')} bodyless>
+                  <Card title={t('К оплате')} icon={<Landmark size={18} />} iconTone="dark" bodyless>
                     <ul className="list">
                       {d.balances.map((b) => (
                         <li key={b.accrual_id}>
@@ -168,7 +210,7 @@ export function TodayPage() {
                   </Card>
                 )}
                 {d.acks.length > 0 && (
-                  <Card title={t('Обязательно к ознакомлению')} bodyless>
+                  <Card title={t('Обязательно к ознакомлению')} icon={<GraduationCap size={18} />} bodyless>
                     <ul className="list">
                       {d.acks.map((a) => (
                         <li key={a.id}>
@@ -181,7 +223,7 @@ export function TodayPage() {
                   </Card>
                 )}
                 {d.openings.length > 0 && (
-                  <Card title={t('Открытия точек')} bodyless>
+                  <Card title={t('Открытия точек')} icon={<Rocket size={18} />} bodyless>
                     <ul className="list">
                       {d.openings.map((o) => (
                         <li key={o.id}>
@@ -201,7 +243,7 @@ export function TodayPage() {
                   </Card>
                 )}
                 {d.drafts.length > 0 && (
-                  <Card title={t('Незавершённые черновики')} bodyless>
+                  <Card title={t('Незавершённые черновики')} icon={<PencilLine size={18} />} bodyless>
                     <ul className="list">
                       {d.drafts.map((x) => (
                         <li key={`${x.kind}-${x.id}`}>

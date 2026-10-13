@@ -1,5 +1,5 @@
 // Навигация по разрешённым модулям (UX-03): сервер всё равно проверяет доступ, меню лишь не показывает недоступное.
-import { BarChart3, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShoppingCart, Store, Rocket } from 'lucide-react';
+import { BarChart3, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShoppingCart, Store, Rocket, Wallet } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -14,7 +14,8 @@ export const NAV: NavItem[] = [
   { to: '/', label: 'Сегодня', icon: Home, group: 'work', visible: () => true },
   { to: '/tasks', label: 'Моя работа', icon: ClipboardList, group: 'work', visible: (can) => can('task.read') },
   { to: '/support', label: 'Поддержка', icon: Headset, group: 'work', visible: (can) => can('ticket.read') || can('ticket.create') },
-  { to: '/catalog', label: 'Каталог', icon: ShoppingCart, group: 'work', visible: (can) => can('order.create') && can('catalog.read') },
+  { to: '/sales', label: 'Выручка', icon: Wallet, group: 'work', visible: (can) => can('sales.enter') || can('sales.manage') || can('sales.read') },
+  { to: '/catalog', label: 'Магазин', icon: ShoppingCart, group: 'work', visible: (can) => can('order.create') && can('catalog.read') },
   { to: '/orders', label: 'Заказы', icon: Package, group: 'work', visible: (can) => can('order.read') || can('order.create') },
   { to: '/partners', label: 'Партнёры и точки', icon: Store, group: 'franchise', visible: (can) => can('org.read') },
   { to: '/openings', label: 'Открытия', icon: Rocket, group: 'franchise', visible: (can) => can('opening.read') },
@@ -36,10 +37,12 @@ export function primaryMobile(items: NavItem[], can: (p: string) => boolean): Na
   const order = can('royalty.publish')
     ? ['/', '/royalties', '/tasks', '/support']
     : can('royalty.report.submit')
-      ? ['/', '/catalog', '/support', '/royalties']
-      : can('order.approve')
-        ? ['/', '/orders', '/tasks', '/support']
-        : ['/', '/tasks', '/support', '/kb'];
+      ? ['/', '/sales', '/catalog', '/royalties']
+      : can('sales.enter')
+        ? ['/', '/sales', '/tasks', '/support']
+        : can('order.approve')
+          ? ['/', '/orders', '/tasks', '/support']
+          : ['/', '/tasks', '/support', '/kb'];
   const picked = order.map(by).filter((x): x is NavItem => Boolean(x));
   for (const i of items) if (picked.length < 4 && !picked.includes(i)) picked.push(i);
   return picked.slice(0, 4);

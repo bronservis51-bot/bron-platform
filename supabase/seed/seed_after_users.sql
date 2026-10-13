@@ -290,7 +290,7 @@ begin
   perform public.cart_set_line(o.id, pg_temp.item('PU-MT-300'), 4);
   perform public.cart_set_line(o.id, pg_temp.item('BLD-45'), 2);
   perform public.order_submit(o.id, 'seed-order-a2');
-  perform pg_temp.act_as('finance1@demo.example.com');
+  perform pg_temp.act_as('supply@demo.example.com');
   perform public.order_payment_confirm(o.id, 'Выписка BANK-DEMO-0101');
   perform pg_temp.act_as('supply@demo.example.com');
   perform public.run_integration_jobs();
@@ -312,7 +312,7 @@ begin
   perform public.order_submit(o.id, 'seed-order-b1');
   perform pg_temp.act_as('supply@demo.example.com');
   perform public.integration_set_demo_behavior('moysklad', 'fail');
-  perform pg_temp.act_as('finance2@demo.example.com');
+  perform pg_temp.act_as('supply@demo.example.com');
   perform public.order_payment_confirm(o.id, 'Выписка BANK-DEMO-0102');
   perform pg_temp.act_as('supply@demo.example.com');
   perform public.run_integration_jobs();

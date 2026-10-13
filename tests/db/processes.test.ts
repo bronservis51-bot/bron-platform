@@ -224,7 +224,9 @@ describe('заказы', () => {
     const [b] = await t.as<{ r: { number: string; replayed: boolean } }>(ALPHA, `select public.order_submit($1, $2) as r`, [cart.id, k]);
     expect(b.r.number).toBe(a.r.number);
     expect(b.r.replayed).toBe(true);
-    await t.as('finance1@demo.example.com', `select public.order_payment_confirm($1, 'BANK-X')`, [cart.id]);
+    // Оплату заказа подтверждает снабжение, а не финансы (решение владельца 13.10.2026)
+    await t.expectError('finance1@demo.example.com', `select public.order_payment_confirm($1, 'BANK-X')`, 'forbidden', [cart.id]);
+    await t.as(SUPPLY, `select public.order_payment_confirm($1, 'BANK-X')`, [cart.id]);
     await t.as(SUPPLY, `select public.integration_set_demo_behavior('moysklad', 'lost_response')`);
     await t.as(SUPPLY, `select public.run_integration_jobs()`);
     const [mid] = await t.admin<{ transfer_status: string }>(`select transfer_status from public.sales_order where id = $1`, [cart.id]);

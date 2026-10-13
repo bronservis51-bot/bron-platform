@@ -50,19 +50,19 @@
 
 | Роль | Область | Разрешения |
 | --- | --- | --- |
-| `founder` | company | все, кроме технических `integration.manage` |
-| `direction_head` | direction | org.read, task.*, opening.*, ticket.*, order.read, order.approve, catalog.read, royalty.read, kb.read, kb.edit, kb.publish, metrics.read, audit.read |
-| `franchise_manager` | partner (назначенные партнёры) или company | org.read, task.read, task.work, opening.read, opening.manage, ticket.*, order.read, catalog.read, royalty.read, kb.read, metrics.read |
-| `finance` | company | org.read, contract.read, contract.manage, royalty.read, royalty.review, royalty.publish, payment.confirm, payment.allocate, finance.internal, order.read, task.read, task.work, ticket.read, ticket.work, kb.read, metrics.read, export.run |
-| `procurement` | company | org.read, catalog.read, catalog.manage, order.read, order.approve, order.manage, task.read, task.work, ticket.read, ticket.work, kb.read, integration.operate |
+| `founder` | company | все, кроме технических `integration.manage`; выручку точек читает и дозаполняет (`sales.read`, `sales.manage`), но смен не ведёт |
+| `direction_head` | direction | org.read, task.*, opening.*, ticket.*, order.read, order.approve, catalog.read, royalty.read, kb.read, kb.edit, kb.publish, metrics.read, audit.read, sales.read |
+| `franchise_manager` | partner (назначенные партнёры) или company | org.read, task.read, task.work, opening.read, opening.manage, ticket.*, order.read, catalog.read, royalty.read, kb.read, metrics.read, sales.read |
+| `finance` | company | org.read, contract.read, contract.manage, royalty.read, royalty.review, royalty.publish, payment.confirm, payment.allocate, finance.internal, order.read, task.read, task.work, ticket.read, ticket.work, kb.read, metrics.read, export.run, sales.read (оплату заказов не подтверждает — решение владельца 13.10.2026) |
+| `procurement` | company | org.read, catalog.read, catalog.manage, order.read, order.approve, order.manage, **order.payment.confirm** (подтверждает оплату заказа партнёра), task.read, task.work, ticket.read, ticket.work, kb.read, integration.operate |
 | `warehouse` | company | catalog.read, order.read, order.fulfill, task.read, task.work, ticket.read, ticket.work, kb.read |
 | `support_specialist`, `designer` | company | org.read, ticket.read, ticket.work, task.read, task.work, kb.read, kb.edit |
 | `hr_admin` | company | org.read, access.manage, task.read, task.work, kb.read |
 | `kb_editor` | company | kb.read, kb.edit, kb.publish, task.read, task.work |
-| `location_manager` | location | org.read, task.read, task.work, ticket.create, ticket.read, order.create, order.read, catalog.read, kb.read |
-| `location_staff` | location | task.read, task.work, ticket.create, ticket.read, kb.read |
-| `partner_owner` | partner | org.read, contract.read, task.read, task.work, opening.read, ticket.create, ticket.read, catalog.read, order.create, order.read, royalty.read, royalty.report.submit, payment.report, kb.read |
-| `partner_staff` | partner или location | task.read, task.work, ticket.create, ticket.read, catalog.read, kb.read (без финансов, AUTH-02) |
+| `location_manager` | location | org.read, task.read, task.work, ticket.create, ticket.read, order.create, order.read, catalog.read, kb.read, sales.enter, sales.manage |
+| `location_staff` | location | task.read, task.work, ticket.create, ticket.read, kb.read, sales.enter |
+| `partner_owner` | partner | org.read, contract.read, task.read, task.work, opening.read, ticket.create, ticket.read, catalog.read, order.create, order.read, royalty.read, royalty.report.submit, payment.report, kb.read, sales.enter, sales.manage — партнёр сам работает на точке: функции владельца, управляющего и сотрудника |
+| `partner_staff` | partner или location | task.read, task.work, ticket.create, ticket.read, catalog.read, kb.read, sales.enter (своя выручка и свой процент; без финансов партнёра, AUTH-02) |
 | `sysadmin` | company | org.read, org.manage, access.manage, integration.operate, integration.manage, audit.read, kb.read (без финансов) |
 
 Разрешения и состав ролей — данные (таблица `role_permission`), а не код. Финансовые разрешения помечены `is_financial`.
@@ -166,3 +166,14 @@
 | Начисления роялти | PWA (после согласования с финансами) | PWA → бухгалтерия (выгрузка) | — |
 | Статьи native | PWA | PWA → Drive (копия) | правка копии не меняет статью |
 | Статьи drive_document | Drive (исходник) → PWA (кандидат) | Drive → PWA | публикация только после согласования |
+
+
+## Выручка смен и процент сотрудника (13.10.2026)
+
+| Сущность | Поля | Правила |
+| --- | --- | --- |
+| `commission_policy` | partner_id?, location_id?, rate_bp, effective_from, note, is_test | Ставка в базисных пунктах (1200 = 12%). Приоритет: точка → партнёр → компания (обе пустые) → 0. Ставки в демо — тестовые |
+| `daily_sale` | location_id, partner_id, day, employee_id, currency, revenue_minor, returns_minor, services_count, comment, source (`self`/`manager`), entered_by, revision | Одна запись на точку, день и сотрудника; возвраты ≤ выручки; валюта точки; деньги — целые минорные единицы |
+| `daily_sale_event` | sale_id, actor_id, action, detail, at | История: кто внёс, кто исправил или удалил и почему |
+
+Заработок = round((выручка − возвраты) × ставка / 10000) — считается на сервере и показывается сотруднику как предварительный. Месяц закрывается для правок, когда по договору точки отправлен отчёт о выручке (`revenue_report` не в `draft`/`needs_correction`).

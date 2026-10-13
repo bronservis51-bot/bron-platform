@@ -44,6 +44,15 @@ export function formatMoney(v: MinorInput, currency: string, locale = 'ru-RU'): 
   return f.format(minorToDecimal(v, currency) as unknown as number);
 }
 
+/** Короткая запись для витрины и крупных цифр: целые суммы без копеек («490 ₽»), иначе как formatMoney. */
+export function formatMoneyShort(v: MinorInput, currency: string, locale = 'ru-RU'): string {
+  const units = MINOR_UNITS[currency] ?? 2;
+  const n = toBigInt(v);
+  if (units === 0 || n % 10n ** BigInt(units) !== 0n) return formatMoney(v, currency, locale);
+  const whole = n / 10n ** BigInt(units);
+  return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(whole as unknown as number);
+}
+
 /** Разбор ввода пользователя «12 500,5» → минорные единицы. Возвращает null при неверном вводе. */
 export function parseMoney(input: string, currency: string): bigint | null {
   const units = MINOR_UNITS[currency] ?? 2;

@@ -1,12 +1,21 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
-import { Building2, ChevronRight, Store, Users } from 'lucide-react';
+import { Building2, ChevronRight, Store, Users, Crown, Landmark, Package, Headset, PenTool, BookOpen, ShieldCheck, Wrench, Truck, UserCog, Rocket, UserRound } from 'lucide-react';
+import { BrandPattern, LogoFull, LogoMark } from '../ui/brand';
 import { useSession } from '../platform/session';
 import { config, quickLoginEnabled } from '../platform/config';
 import { Alert, Button, Checkbox, Field, Input } from '../ui';
 import demoUsers from '../../supabase/seed/demo-users.json';
 
 interface DemoUser { email: string; name: string; group: 'company' | 'own' | 'partner'; title: string; scope: string; hint: string }
+
+const ROLE_ICON: Record<string, typeof Building2> = {
+  'founder@demo.example.com': Crown, 'head@demo.example.com': ShieldCheck, 'fm@demo.example.com': Rocket,
+  'finance1@demo.example.com': Landmark, 'finance2@demo.example.com': Landmark, 'supply@demo.example.com': Package,
+  'warehouse@demo.example.com': Truck, 'tech@demo.example.com': Wrench, 'designer@demo.example.com': PenTool,
+  'hr@demo.example.com': UserCog, 'editor@demo.example.com': BookOpen, 'sysadmin@demo.example.com': ShieldCheck,
+  'manager.north@demo.example.com': Store, 'staff.north@demo.example.com': UserRound, 'alpha.staff@demo.example.com': UserRound,
+};
 
 const GROUPS: { id: DemoUser['group']; title: string; icon: typeof Building2 }[] = [
   { id: 'company', title: 'Сотрудники компании', icon: Building2 },
@@ -38,8 +47,11 @@ function QuickLogin({ onError }: { onError: (msg: string) => void }) {
         <section key={g.id} style={{ marginBottom: 20 }}>
           <div className="row" style={{ marginBottom: 8, color: 'var(--text-2)', fontWeight: 600 }}><g.icon size={16} aria-hidden />{g.title}</div>
           <div className="grid grid-2" style={{ gap: 8 }}>
-            {(demoUsers as DemoUser[]).filter((u) => u.group === g.id).map((u) => (
-              <button key={u.email} type="button" className="role-card" onClick={() => void enter(u)} disabled={busy !== null} aria-busy={busy === u.email}>
+            {(demoUsers as DemoUser[]).filter((u) => u.group === g.id).map((u) => {
+              const Icon = ROLE_ICON[u.email] ?? Headset;
+              return (
+              <button key={u.email} type="button" className={`role-card ${u.group}`} onClick={() => void enter(u)} disabled={busy !== null} aria-busy={busy === u.email}>
+                <span className="role-avatar" aria-hidden>{u.group === 'partner' && !ROLE_ICON[u.email] ? <LogoMark height={22} /> : <Icon size={20} />}</span>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span className="role-title">{u.title}</span>
                   <span className="role-scope">{u.scope}</span>
@@ -47,7 +59,8 @@ function QuickLogin({ onError }: { onError: (msg: string) => void }) {
                 </span>
                 {busy === u.email ? <span className="spinner" aria-hidden /> : <ChevronRight size={18} aria-hidden />}
               </button>
-            ))}
+              );
+            })}
           </div>
         </section>
       ))}
@@ -82,15 +95,22 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-wrap">
-      <div className="login-card card" style={quickLoginEnabled ? { width: 'min(860px, 100%)' } : undefined}>
-        <div className="card-body">
-          <div style={{ marginBottom: 20 }}>
-            <div className="brand-name" style={{ fontSize: 22 }}>Бронь Сервис</div>
-            <div className="muted">Рабочий кабинет сотрудников и партнёров</div>
-          </div>
+    <div className="login-split">
+      <aside className="login-brand">
+        <BrandPattern className="p1" rows={5} cols={6} />
+        <BrandPattern className="p2" rows={2} cols={6} />
+        <span className="big-mark"><LogoMark height={340} /></span>
+        <div style={{ position: 'relative' }}>
+          <LogoFull height={52} />
+          <h1>Рабочий кабинет сотрудников и партнёров</h1>
+          <p>Задачи на сегодня, открытие точек, заказ плёнки, выручка и роялти, база знаний — в одном месте.</p>
+        </div>
+        <div className="faint" style={{ position: 'relative', color: '#6f7076' }}>© Бронь Сервис</div>
+      </aside>
+      <main className="login-panel">
+        <div className="inner">
           {config.appEnv === 'demo' && (
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 20 }}>
               <Alert tone="demo" title="Демонстрационный стенд">
                 Синтетические данные и demo-интеграции. Реальные заказы, оплаты и персональные данные не вводите.
               </Alert>
@@ -98,10 +118,12 @@ export function LoginPage() {
           )}
           {quickLoginEnabled && <QuickLogin onError={setError} />}
           {quickLoginEnabled && error && <div className="alert tone-danger" role="alert" style={{ marginBottom: 12 }}><div className="alert-body">{error}</div></div>}
-          {quickLoginEnabled ? <details><summary className="muted" style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Войти по email и паролю</summary>{form()}</details> : form()}
+          {quickLoginEnabled
+            ? <details className="card" style={{ padding: '4px 16px' }}><summary className="muted" style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Войти по email и паролю</summary>{form()}</details>
+            : <div className="card"><div className="card-body">{form()}</div></div>}
           <p className="faint" style={{ marginTop: 16 }}>Учётные записи выдаёт администратор компании. Самостоятельная регистрация отключена.</p>
         </div>
-      </div>
+      </main>
     </div>
   );
 

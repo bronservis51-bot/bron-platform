@@ -9,6 +9,7 @@ import { config, quickLoginEnabled } from '../platform/config';
 import { useT } from '../platform/i18n';
 import { Button } from '../ui';
 import { GROUP_TITLE, NAV, primaryMobile, type NavItem } from './nav';
+import { BrandPattern, LogoFull, LogoMark } from '../ui/brand';
 import { flushQueue } from '../modules/support/offlineQueue';
 
 function useOnline() {
@@ -150,7 +151,7 @@ export function Shell() {
       <a href="#main" className="skip-link" onClick={(e) => { e.preventDefault(); mainRef.current?.focus(); }}>{t('К содержимому')}</a>
       <aside className="sidebar" aria-label="Основная навигация">
         <div className="brand">
-          <span className="brand-name">Бронь Сервис</span>
+          <LogoFull height={40} />
           <span className="brand-sub">{t('Рабочий кабинет')}{isDemo ? ' · demo' : ''}</span>
         </div>
         <nav className="nav">
@@ -161,12 +162,15 @@ export function Shell() {
             </div>
           ))}
         </nav>
-        <div style={{ marginTop: 'auto', paddingTop: 16 }} className="faint">{t('Версия')} {config.version}</div>
+        <div className="sidebar-foot">
+          <BrandPattern rows={3} cols={6} />
+          <div className="faint">{t('Версия')} {config.version}</div>
+        </div>
       </aside>
       <div className="main">
         <header className="topbar">
           <div className="grow" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <span className="hide-desktop" style={{ fontWeight: 700 }}>БС</span>
+            <span className="mobile-mark"><LogoMark height={28} /></span>
             <ContextSwitcher />
             {isDemo && <span className="badge tone-demo hide-mobile" title={t('Синтетические данные и demo-интеграции')}>{t('Демо-стенд')}</span>}
           </div>

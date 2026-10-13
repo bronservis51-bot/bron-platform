@@ -161,12 +161,26 @@
 | OPS-04 | CI: типы, тесты, сборка, миграции | P0 | частично | Локальные команды `npm run typecheck`, `npm test`, `npm run build`; GitHub Actions — после создания репозитория |
 | COST-01…20 | Прототип за 0 ₽ на GitHub Pages + Supabase Free | P0 | да | Таблица расходов в [delivery-plan.md](delivery-plan.md) — 0 ₽ по каждой позиции |
 
+### 2.9 Выручка смен и процент сотрудника (добавлено 13.10.2026 по решению владельца)
+
+| ID | Требование | Приоритет |
+| --- | --- | --- |
+| SALES-01 | Сотрудник вносит выручку за смену (сумма, возвраты, услуги) за последние 3 дня; будущие дни запрещены | P0 |
+| SALES-02 | Сотрудник видит свой процент и заработок за смену и месяц; ставка задаётся политикой точки/партнёра/компании и действует с даты | P0 |
+| SALES-03 | Владелец и управляющий видят отчёт точки за месяц по дням и сотрудникам, пропущенные дни, и дозаполняют их на отдельной вкладке | P0 |
+| SALES-04 | Месячный отчёт о выручке формируется из ежедневных; после отправки месяц закрыт для правок | P0 |
+| SALES-05 | Партнёр, работающий на точке сам, имеет функции владельца, управляющего и сотрудника одновременно | P0 |
+| BUY-14 | Оплату заказа партнёра подтверждает снабжение (`order.payment.confirm`), а не финансы и не руководитель | P0 |
+| UX-11 | Каталог в виде витрины магазина: категории, изображения, артикул, «лист на N телефонов», избранное, корзина со счётчиком | P1 |
+
 ## 3 Трассировка «требование → процесс → сущности → API → экран → проверка»
 
 | Требование | Процесс | Сущности | Команды / чтение | Экран | Проверка |
 | --- | --- | --- | --- | --- | --- |
 | AUTH-01/02 | Управление доступом | `role_assignment`, `role_permission` | `assign_role`, `revoke_assignment` | Настройки → Доступ | `access.test` AT-01, повышение прав |
 | CORE-02/04 | Работа с задачей | `task`, `task_event`, `task_dependency` | `task_take`, `task_transition`, `task_complete` | Моя работа | `tasks.test` |
+| SALES-01…05 | P-SALES | `daily_sale`, `commission_policy` | `sale_save`, `sale_delete`, `sales_month`, `my_earnings`, `sales_for_report` | Выручка (Моя смена / Отчёт точки), Сегодня, Отчёт роялти | `sales.test` |
+| BUY-14 | P-BUY | `sales_order` | `order_payment_confirm` | Заказ | `processes.test` AT-05 |
 | OPEN-01…05 | P-OPEN | `opening_project`, `workflow_instance`, `task` | `opening_create`, `opening_change_date`, `opening_approve` | Проект открытия | `opening.test` AT-03, AT-04 |
 | SUP-02…04 | P-SUP | `ticket`, `ticket_message`, `ticket_event` | `ticket_create`, `ticket_assign`, `ticket_reply`, `ticket_resolve`, `ticket_confirm`, `ticket_reopen` | Поддержка | `support.test` |
 | BUY-02…07 | P-BUY | `sales_order`, `order_line`, `shipment`, `outbox` | `cart_set_line`, `order_submit`, `order_approve`, `process_outbox`, `order_receive` | Каталог, Заказ | `orders.test` AT-05, AT-06 |

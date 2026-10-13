@@ -49,6 +49,7 @@ const ArticlePage = page(kb, 'ArticlePage');
 const ArticleEditPage = page(kb, 'ArticleEditPage');
 const ArticleReviewPage = page(kb, 'ArticleReviewPage');
 const LearningPage = page(kb, 'LearningPage');
+const SalesPage = page(() => import('../modules/sales/SalesPages'), 'SalesPage');
 const OverviewPage = page(() => import('../modules/metrics/OverviewPage'), 'OverviewPage');
 const SettingsPage = page(() => import('../modules/settings/SettingsPage'), 'SettingsPage');
 const NotificationsPage = page(() => import('../modules/notifications/NotificationsPage'), 'NotificationsPage');
@@ -91,6 +92,7 @@ const router = createHashRouter([
       { path: 'support/new', element: <NewTicketPage /> },
       { path: 'support/:id', element: <TicketPage /> },
       { path: 'catalog', element: <CatalogPage /> },
+      { path: 'sales', element: <SalesPage /> },
       { path: 'orders', element: <OrdersPage /> },
       { path: 'orders/:id', element: <OrderPage /> },
       { path: 'royalties', element: <RoyaltiesPage /> },

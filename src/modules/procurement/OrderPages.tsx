@@ -41,7 +41,7 @@ export function OrdersPage() {
       <PageHeader title={t('Заказы')} sub="Заказы партнёров и заявки собственных точек" />
       <Chips label="Фильтр заказов" value={filter} onChange={setFilter} options={[
         { id: 'active', label: 'В работе' },
-        ...(can('order.approve') || can('payment.confirm') ? [{ id: 'approval' as const, label: 'Ждут решения' }] : []),
+        ...(can('order.approve') || can('order.payment.confirm') ? [{ id: 'approval' as const, label: 'Ждут решения' }] : []),
         ...(can('order.manage') || can('integration.operate') ? [{ id: 'problem' as const, label: 'Проблемы передачи' }] : []),
         { id: 'done', label: 'Завершённые' }, { id: 'all', label: 'Все' },
       ]} />
@@ -113,7 +113,7 @@ export function OrderPage() {
                     <Button variant="primary" loading={act.isPending} onClick={() => act.mutate(() => orderCommands.approve(o.id, null))}>Согласовать</Button>
                     <Button onClick={() => setDialog('reject')}>Отклонить</Button>
                   </>}
-                  {['required', 'reported'].includes(o.payment_status) && o.status !== 'cancelled' && can('payment.confirm') && !mine && <Button variant="primary" onClick={() => setDialog('payment')}>Подтвердить оплату</Button>}
+                  {['required', 'reported'].includes(o.payment_status) && o.status !== 'cancelled' && can('order.payment.confirm') && !mine && <Button variant="primary" onClick={() => setDialog('payment')}>Подтвердить оплату</Button>}
                   {canReceive && <Button variant="primary" onClick={() => { setRecv({}); setDialog('receive'); }}>{t('Принять поставку')}</Button>}
                   {can('order.create') && <Button onClick={() => act.mutate(async () => { const c = await orderCommands.repeat(o.id); toast('Создана новая корзина с текущими ценами'); navigate(`/catalog?order=${c.id}`); })}><RotateCcw size={15} aria-hidden />{t('Повторить заказ')}</Button>}
                   {['submitted', 'confirmed'].includes(o.status) && (mine || can('order.manage')) && <Button variant="danger" onClick={() => setDialog('cancel')}>{t('Отменить')}</Button>}
@@ -122,7 +122,7 @@ export function OrderPage() {
             <ActionError error={act.error} />
             {o.transfer_status === 'failed' && <div style={{ marginBottom: 16 }}><Alert tone="danger" title="Склад сейчас недоступен">Заказ сохранён и будет передан автоматически. Оператор видит проблему и может повторить передачу.</Alert></div>}
             {o.transfer_status === 'needs_reconciliation' && <div style={{ marginBottom: 16 }}><Alert tone="warning" title="Проверяем, получил ли склад заказ">Ответ склада потерян. Перед повтором система сверит документ, чтобы не создать дубль.</Alert></div>}
-            {o.payment_status === 'required' && mine && <div style={{ marginBottom: 16 }}><Alert tone="info" title="Ожидается оплата">Заказ уйдёт на склад после того, как финансы подтвердят зачисление.</Alert></div>}
+            {o.payment_status === 'required' && mine && <div style={{ marginBottom: 16 }}><Alert tone="info" title="Ожидается оплата">Заказ уйдёт на склад после того, как снабжение подтвердит зачисление.</Alert></div>}
             <div className="grid grid-main">
               <div className="stack">
                 <Card title="Позиции" bodyless>

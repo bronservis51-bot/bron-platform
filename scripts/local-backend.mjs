@@ -24,7 +24,8 @@ const db = fresh
   ? await createDb({
       dataDir: DATA,
       onUser: async (d, u, id) => {
-        const pw = `Demo-${randomBytes(3).toString('hex')}-${randomBytes(3).toString('hex')}`;
+        // Общий пароль быстрого входа (как на демо-стенде), иначе — случайный для каждого пользователя
+        const pw = process.env.VITE_DEMO_QUICK_PASSWORD || `Demo-${randomBytes(3).toString('hex')}-${randomBytes(3).toString('hex')}`;
         await d.exec('create schema if not exists local_dev');
         await d.exec('create table if not exists local_dev.password(email text primary key, user_id uuid not null, password text not null)');
         await d.query('insert into local_dev.password values ($1, $2, $3)', [u.email, id, pw]);

@@ -38,6 +38,7 @@ export async function createDb({ dataDir, seed = true, users = true, onUser } = 
         if (onUser) await onUser(db, u, r.rows[0].id);
       }
       await run(db, join(root, 'supabase/seed/seed_after_users.sql'), 'Seed после пользователей');
+      await run(db, join(root, 'supabase/seed/seed_v2.sql'), 'Seed v2 (каталог, выручка)');
     }
   }
   return db;

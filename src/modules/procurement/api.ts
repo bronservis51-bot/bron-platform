@@ -1,7 +1,8 @@
 import { command, from, rows, single } from '../../platform/backend';
 
 export interface CatalogItem {
-  item_id: string; sku: string; name: string; category: string; description: string | null; unit: string; pack_multiple: string; min_qty: string;
+  item_id: string; sku: string; article_no: number | null; name: string; category: string; subtitle: string | null; description: string | null;
+  visual: { kind?: string; colors?: string[]; tool?: string } | null; image_url: string | null; unit: string; pack_multiple: string; min_qty: string;
   lead_time_days: number | null; price_minor: string; currency: string; available_qty: string | null; stock_source: string | null; stock_refreshed_at: string | null;
 }
 export interface Order {

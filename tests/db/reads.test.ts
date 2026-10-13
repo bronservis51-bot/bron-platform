@@ -38,11 +38,17 @@ describe('чтение для всех ролей', () => {
     const alpha1 = await id(`select id from public.location where code = 'ALPHA-1'`);
     const north = await id(`select id from public.location where code = 'OWN-NORTH'`);
     const gamma = await id(`select id from public.location where code = 'GAMMA-1'`);
-    const a = await t.as<{ currency: string }>('alpha.owner@demo.example.com', `select * from public.catalog_for_location($1)`, [alpha1]);
-    expect(a.length).toBe(8);
+    const a = await t.as<{ currency: string; sku: string; price_minor: string; subtitle: string; article_no: number; visual: { kind: string } }>(
+      'alpha.owner@demo.example.com', `select * from public.catalog_for_location($1)`, [alpha1]);
+    expect(a.length).toBe(22);
     expect(a[0].currency).toBe('RUB');
+    const glossy = a.find((r) => r.sku === 'SH-GL-6')!;
+    expect(Number(glossy.price_minor)).toBe(49000);
+    expect(glossy.subtitle).toBe('Лист на 6 телефонов');
+    expect(glossy.visual.kind).toBe('glossy');
+    expect(a.every((r) => r.article_no > 0)).toBe(true);
     const n = await t.as<{ currency: string }>('manager.north@demo.example.com', `select * from public.catalog_for_location($1)`, [north]);
-    expect(n.length).toBe(8);
+    expect(n.length).toBe(22);
     const g = await t.as<{ currency: string }>('gamma.owner@demo.example.com', `select * from public.catalog_for_location($1)`, [gamma]);
     expect(g[0].currency).toBe('TRY');
     await t.expectError('alpha.owner@demo.example.com', `select * from public.catalog_for_location($1)`, 'not-found', [gamma]);

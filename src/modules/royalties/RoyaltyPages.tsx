@@ -2,39 +2,26 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, FileUp, Plus } from 'lucide-react';
+import { CalendarCheck, Download, FileUp, Plus } from 'lucide-react';
 import { useSession } from '../../platform/session';
 import { newOperationKey, toAppError } from '../../platform/backend';
 import { addDays, formatDate, formatDateTime, formatPeriod, isoDate, monthStart } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
 import { drafts } from '../../platform/offline';
 import { formatMoney, minorToDecimal, parseMoney, sumMinor, toBigInt } from '../../platform/money';
-import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, KV, Money, PageHeader, Select,
+import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, KV, Money, MoneyInput, PageHeader, Select,
   Tabs, Textarea, Timeline } from '../../ui';
 import { PAYMENT_STATUS, REPORT_STATUS, st, VERIFICATION } from '../../ui/status';
 import { FileAttach, FileList } from '../../ui/files';
 import { useToast } from '../../ui/toast';
 import { useLocations, usePartners, useUserNames } from '../shared/lookups';
+import { salesForReport } from '../sales/api';
 import {
   accrualForReport, adjustments, allocationsFor, contractLocations, contracts, disputes, events, getAccrual, getBalance, getCalculation, getPayment,
   getPaymentBalance, getReport, lines, listBalances, listPayments, listReports, notes, policies, revisions, ROY_EVENT, royaltyCommands, type LineInput,
 } from './api';
 
 const pct = (bp: number) => `${(bp / 100).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })}%`;
-
-function MoneyInput({ id, value, onChange, currency, invalid }: { id: string; value: string; onChange: (minor: string) => void; currency: string; invalid?: boolean }) {
-  const [text, setText] = useState(value ? minorToDecimal(value, currency).replace('.', ',') : '');
-  const [bad, setBad] = useState(false);
-  return (
-    <Input id={id} inputMode="decimal" value={text} aria-invalid={bad || invalid || undefined}
-      onChange={(e) => {
-        setText(e.target.value);
-        const v = e.target.value.trim() === '' ? 0n : parseMoney(e.target.value, currency);
-        setBad(v === null);
-        if (v !== null) onChange(v.toString());
-      }} />
-  );
-}
 
 /** Акт сверки (ROY-12): выгрузка начислений, корректировок и оплат в CSV на устройство. */
 function exportReconciliation(partnerName: string, balances: ReturnType<typeof useQuery<Awaited<ReturnType<typeof listBalances>>>>['data'], payments: Awaited<ReturnType<typeof listPayments>> | undefined) {
@@ -291,6 +278,8 @@ export function ReportPage() {
   const pol = useQuery({ queryKey: ['policies', r?.contract_id], enabled: Boolean(r?.contract_id), queryFn: () => policies(r!.contract_id) });
   const ev = useQuery({ queryKey: ['report', id, 'events'], queryFn: () => events('revenue_report', id) });
   const nt = useQuery({ queryKey: ['report', id, 'notes'], enabled: can('finance.internal'), queryFn: () => notes('revenue_report', id) });
+  const daily = useQuery({ queryKey: ['sales', 'report', r?.contract_id, r?.period], enabled: Boolean(r && ['draft', 'needs_correction'].includes(r.status)),
+    queryFn: () => salesForReport(r!.contract_id, r!.period) });
 
   const editable = Boolean(r && ['draft', 'needs_correction'].includes(r.status) && can('royalty.report.submit'));
   const cur = contract?.currency ?? 'RUB';
@@ -399,6 +388,31 @@ export function ReportPage() {
             {r.status === 'needs_correction' && r.return_reason && <div style={{ marginBottom: 16 }}><Alert tone="danger" title="Финансы вернули отчёт">{r.return_reason}</Alert></div>}
             <div className="grid grid-main">
               <div className="stack">
+                {editable && daily.data && form && (() => {
+                  const miss = daily.data.locations.reduce((n, l) => n + l.missing_days.length, 0);
+                  const filled = daily.data.locations.every((l) => form.some((f) => f.location_id === l.location_id && f.gross_minor === String(l.gross_minor) && f.returns_minor === String(l.returns_minor)));
+                  return (
+                    <Card title="Ежедневные отчёты смен" icon={<CalendarCheck size={18} />} iconTone={miss ? 'danger' : 'dark'}>
+                      <ul className="list">
+                        {daily.data.locations.map((l) => (
+                          <li key={l.location_id} className="row between" style={{ padding: '6px 0' }}>
+                            <span><strong>{l.location_name}</strong> · <Money minor={l.gross_minor} currency={cur} /> · {t('дней')} {l.days_with_data} / {daily.data!.days_in_period}</span>
+                            {l.missing_days.length > 0
+                              ? <Link to={`/sales?tab=location&location=${l.location_id}&month=${r.period}`}>{t('Не заполнено')}: {l.missing_days.length} — {t('дозаполнить')}</Link>
+                              : <Badge tone="success">{t('все дни внесены')}</Badge>}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="row between" style={{ marginTop: 10 }}>
+                        <span className="faint">{miss ? t('Сначала дозаполните пропущенные дни, чтобы отчёт ушёл полным.') : t('Суммы месяца собраны из ежедневной выручки смен.')}</span>
+                        <Button size="sm" variant={filled ? 'secondary' : 'primary'} disabled={filled} onClick={() => setForm((f) => (f ?? []).map((x) => {
+                          const d = daily.data!.locations.find((l) => l.location_id === x.location_id);
+                          return d ? { ...x, gross_minor: String(d.gross_minor), returns_minor: String(d.returns_minor), zero_reason: d.gross_minor ? null : x.zero_reason } : x;
+                        }))}>{filled ? t('Заполнено из смен') : t('Заполнить из ежедневных отчётов')}</Button>
+                      </div>
+                    </Card>
+                  );
+                })()}
                 <Card title="Выручка по точкам" actions={ver && <Badge tone={ver[1]} title="Степень проверки выручки">{ver[0]}</Badge>}>
                   {!form ? <div className="faint">Загрузка…</div> : (
                     <>
