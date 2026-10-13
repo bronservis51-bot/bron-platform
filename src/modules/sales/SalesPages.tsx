@@ -299,7 +299,8 @@ function LocationReportTab() {
   const read = useLocationsWith('sales.read');
   const locs = useMemo(() => {
     const map = new Map([...read.data, ...manage.data].map((l) => [l.id, l]));
-    return [...map.values()].filter((l) => l.status !== 'closed').sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    return [...map.values()].filter((l) => l.status !== 'closed')
+      .sort((a, b) => Number(a.status !== 'active') - Number(b.status !== 'active') || a.name.localeCompare(b.name, 'ru'));
   }, [manage.data, read.data]);
   const max = monthOf(localToday());
   const location = params.get('location') ?? locs[0]?.id ?? '';
@@ -335,7 +336,8 @@ function LocationReportTab() {
           }
           const editable = m.can_manage && !m.locked;
           const net = toBigInt(m.totals.revenue_minor) - toBigInt(m.totals.returns_minor);
-          const pastMissing = m.missing_days.filter((d) => d < m.today);
+          const opening = locs.find((l) => l.id === m.location.id)?.status !== 'active';
+          const pastMissing = opening ? [] : m.missing_days.filter((d) => d < m.today);
           return (
             <>
               {m.locked && <Alert tone="info" title="Месяц сдан">{t('Отчёт о выручке за этот месяц уже отправлен. Исправления — через финансы корректировкой.')}</Alert>}
@@ -363,7 +365,7 @@ function LocationReportTab() {
                   ))}<th className="r">{t('Итого')}</th></tr></thead>
                   <tbody>{days.map((d) => {
                     const dayTotal = m.entries.filter((e) => e.day === d).reduce((s, e) => s + toBigInt(e.revenue_minor), 0n);
-                    const miss = missing.has(d) && d < m.today;
+                    const miss = !opening && missing.has(d) && d < m.today;
                     return (
                       <tr key={d} className={miss ? 'missing' : undefined}>
                         <td style={{ whiteSpace: 'nowrap' }}>{dayLabel(d)}{d === m.today && <> <Badge tone="info" icon={false}>{t('сегодня')}</Badge></>}</td>

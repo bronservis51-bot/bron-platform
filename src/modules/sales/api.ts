@@ -25,7 +25,7 @@ export interface SalesForReport {
 }
 export interface ControlRow {
   location_id: string; location_name: string; partner_name: string; kind: string; currency: string; revenue_minor: number; services: number;
-  days_with_data: number; missing_days: number; avg_check_minor: number | null; card_share: number | null; film_phones_60d: number; services_60d: number;
+  days_with_data: number; missing_days: number; avg_check_minor: number | null; card_share: number | null; film_phones_60d: number; services_60d: number; services_est_60d: number;
   reductions: number; manager_entries: number; report_diff_minor: number; report_period: string | null; risk: number;
 }
 

@@ -42,6 +42,7 @@ export const CONTRACT = {
   me: { args: [], returns: 'scalar' },
   metrics_overview: { args: [], returns: 'scalar' },
   my_earnings: { args: ['month'], returns: 'scalar' },
+  network_map: { args: [], returns: 'scalar' },
   notification_mark_read: { args: ['ids'], returns: 'scalar' },
   offboard_user: { args: ['user', 'reason'], returns: 'scalar' },
   opening_add_note: { args: ['project', 'body'], returns: 'scalar' },

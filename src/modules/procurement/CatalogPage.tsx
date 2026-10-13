@@ -137,7 +137,7 @@ export function CatalogPage() {
   useEffect(() => {
     if (location || !locs.data.length) return;
     const ctx = context?.scope_type === 'location' ? context.scope_id : null;
-    setLocation(ctx && locs.data.some((l) => l.id === ctx) ? ctx : locs.data[0].id);
+    setLocation(ctx && locs.data.some((l) => l.id === ctx) ? ctx : (locs.data.find((l) => l.status === 'active') ?? locs.data[0]).id);
   }, [locs.data, context, location]);
 
   const items = useQuery({ queryKey: ['catalog', location], enabled: Boolean(location), queryFn: () => catalog(location) });

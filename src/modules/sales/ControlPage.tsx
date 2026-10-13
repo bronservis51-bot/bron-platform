@@ -20,8 +20,8 @@ function shiftMonth(month: string, n: number) {
 function signals(r: ControlRow): { tone: 'danger' | 'warning'; text: string }[] {
   const s: { tone: 'danger' | 'warning'; text: string }[] = [];
   if (r.report_diff_minor < 0) s.push({ tone: 'danger', text: `Отчёт роялти меньше смен на ${formatMoneyShort(-r.report_diff_minor, r.currency, intlLocale())}` });
-  if (r.film_phones_60d > 0 && r.services_60d < r.film_phones_60d * 0.6)
-    s.push({ tone: 'warning', text: `Плёнки куплено на ${r.film_phones_60d} оклеек, показано ${r.services_60d} (${Math.round((r.services_60d * 100) / r.film_phones_60d)}%)` });
+  if (r.film_phones_60d > 0 && r.services_est_60d < r.film_phones_60d * 0.6)
+    s.push({ tone: 'warning', text: `Плёнки куплено на ${r.film_phones_60d} оклеек, показано ~${r.services_est_60d} (${Math.round((r.services_est_60d * 100) / r.film_phones_60d)}%)` });
   if (r.reductions > 0) s.push({ tone: 'warning', text: `Франчайзи уменьшал смены менеджеров: ${r.reductions}` });
   if (r.missing_days > 2) s.push({ tone: 'warning', text: `Дней без выручки: ${r.missing_days}` });
   if (r.card_share !== null && r.card_share < 0.35) s.push({ tone: 'warning', text: `Мало оплат картой: ${Math.round(r.card_share * 100)}% (наличные проверить труднее)` });
@@ -66,7 +66,7 @@ export function ControlPage() {
               </tr></thead>
               <tbody>{d.locations.map((r) => {
                 const sig = signals(r);
-                const use = r.film_phones_60d > 0 ? Math.min(100, Math.round((r.services_60d * 100) / r.film_phones_60d)) : null;
+                const use = r.film_phones_60d > 0 ? Math.min(100, Math.round((r.services_est_60d * 100) / r.film_phones_60d)) : null;
                 return (
                   <tr key={r.location_id}>
                     <td><Link to={`/sales?tab=location&location=${r.location_id}&month=${d.month}`}><strong>{r.location_name}</strong></Link><div className="faint">{r.partner_name}</div></td>
@@ -76,7 +76,7 @@ export function ControlPage() {
                     <td className="r">{r.card_share !== null ? `${Math.round(r.card_share * 100)}%` : '—'}</td>
                     <td style={{ minWidth: 170 }}>{use === null ? <span className="faint">{t('нет закупок')}</span> : <>
                       <div className="use-bar"><span style={{ width: `${use}%` }} className={use < 60 ? 'low' : ''} /></div>
-                      <div className="faint">{r.services_60d} {t('из')} {r.film_phones_60d} ({use}%)</div></>}</td>
+                      <div className="faint">~{r.services_est_60d} {t('из')} {r.film_phones_60d} ({use}%)</div></>}</td>
                     <td>{sig.length ? <ul className="signal-list">{sig.map((x, i) => <li key={i} className={x.tone}>{t(x.text)}</li>)}</ul> : <span className="faint">{t('нет')}</span>}</td>
                     <td>{r.risk >= 3 ? <Badge tone="danger">{t('высокий')}</Badge> : r.risk >= 1 ? <Badge tone="warning">{t('проверить')}</Badge> : <Badge tone="success">{t('норма')}</Badge>}</td>
                   </tr>

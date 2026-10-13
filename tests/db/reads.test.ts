@@ -75,3 +75,17 @@ describe('чтение для всех ролей', () => {
     expect((await t.as('alpha.owner@demo.example.com', `select * from public.opening_blockers($1)`, [p])).length).toBeGreaterThan(0);
   });
 });
+
+describe('карта сети', () => {
+  it('руководитель видит все точки с координатами и сводкой; франчайзи — нет', async () => {
+    const [r] = await t.as<{ m: { locations: { code: string; lat: number | null; kind: string; revenue_minor: number; control: unknown }[] } }>(
+      'founder@demo.example.com', `select public.network_map() as m`);
+    const codes = r.m.locations.map((l) => l.code);
+    expect(codes).toEqual(expect.arrayContaining(['OWN-NORTH', 'ALPHA-1', 'BETA-1', 'GAMMA-1', 'ALPHA-3']));
+    expect(r.m.locations.every((l) => l.lat !== null)).toBe(true);
+    expect(r.m.locations.find((l) => l.code === 'ALPHA-1')!.revenue_minor).toBeGreaterThan(0);
+    expect(r.m.locations.find((l) => l.code === 'BETA-1')!.control).toBeTruthy();
+    await t.expectError('alpha.owner@demo.example.com', `select public.network_map()`, 'forbidden');
+    await t.expectError('staff.north@demo.example.com', `select public.network_map()`, 'forbidden');
+  });
+});

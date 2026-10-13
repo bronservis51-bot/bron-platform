@@ -1,5 +1,5 @@
 // Навигация по разрешённым модулям (UX-03): сервер всё равно проверяет доступ, меню лишь не показывает недоступное.
-import { BarChart3, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShieldAlert, ShoppingCart, Store, Rocket, Truck, Wallet } from 'lucide-react';
+import { BarChart3, Map as MapIcon, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShieldAlert, ShoppingCart, Store, Rocket, Truck, Wallet } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -25,6 +25,7 @@ export const NAV: NavItem[] = [
   { to: '/royalties', label: 'Роялти', icon: Landmark, group: 'franchise', visible: (can) => can('royalty.read') },
   { to: '/kb', label: 'База знаний', icon: BookOpen, group: 'knowledge', visible: (can) => can('kb.read') },
   { to: '/learning', label: 'Обучение', icon: GraduationCap, group: 'knowledge', visible: (can) => can('kb.read') },
+  { to: '/map', label: 'Карта сети', icon: MapIcon, group: 'control', visible: (can, isStaff) => isStaff && can('metrics.read') },
   { to: '/overview', label: 'Обзор', icon: BarChart3, group: 'control', visible: (can) => can('metrics.read') },
   { to: '/settings', label: 'Настройки', icon: Settings, group: 'control',
     visible: (can) => can('integration.operate') || can('access.manage') || can('audit.read') || can('metrics.read') },
@@ -37,13 +38,17 @@ export const GROUP_TITLE: Record<NavItem['group'], string> = {
 /** 4 основных пункта мобильной навигации по роли (UX-03), остальное — в «Ещё». */
 export function primaryMobile(items: NavItem[], can: (p: string) => boolean): NavItem[] {
   const by = (to: string) => items.find((i) => i.to === to);
-  const order = can('royalty.publish')
+  const order = can('access.manage') && can('royalty.publish')
+    ? ['/', '/map', '/control', '/royalties']
+    : can('royalty.publish')
     ? ['/', '/royalties', '/tasks', '/support']
     : can('royalty.report.submit')
       ? ['/', '/sales', '/catalog', '/royalties']
       : can('sales.enter')
         ? ['/', '/sales', '/tasks', '/support']
-        : can('order.approve')
+        : can('catalog.manage')
+          ? ['/', '/orders', '/supply', '/tasks']
+          : can('order.approve')
           ? ['/', '/orders', '/tasks', '/support']
           : ['/', '/tasks', '/support', '/kb'];
   const picked = order.map(by).filter((x): x is NavItem => Boolean(x));

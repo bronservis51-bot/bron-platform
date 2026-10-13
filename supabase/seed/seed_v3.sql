@@ -65,14 +65,25 @@ on conflict (number) do nothing;
 insert into public.order_line(order_id, item_id, sku, name, unit, price_minor, qty_ordered, qty_confirmed, qty_shipped, qty_received, line_total_minor)
 select o.id, i.id, i.sku, i.name, i.unit, 0, v.qty, v.qty, v.qty, v.qty, 0
 from (values
-  ('ЗК-ДЕМО-9001', 'SH-GL-6', 20), ('ЗК-ДЕМО-9001', 'SH-MT-6', 10), ('ЗК-ДЕМО-9001', 'SH-CM-01', 15),
-  ('ЗК-ДЕМО-9002', 'SH-GL-6', 15), ('ЗК-ДЕМО-9002', 'SH-TX-01', 10),
+  ('ЗК-ДЕМО-9001', 'SH-GL-6', 10), ('ЗК-ДЕМО-9001', 'SH-CM-01', 10),
+  ('ЗК-ДЕМО-9002', 'SH-GL-6', 8), ('ЗК-ДЕМО-9002', 'SH-TX-01', 6),
   ('ЗК-ДЕМО-9003', 'SH-GL-6', 120), ('ЗК-ДЕМО-9003', 'SH-MT-6', 60), ('ЗК-ДЕМО-9004', 'SH-GL-6', 90), ('ЗК-ДЕМО-9004', 'SH-PR-6', 40),
   ('ЗК-ДЕМО-9005', 'SH-GL-6', 12), ('ЗК-ДЕМО-9005', 'SH-NT-01', 10),
-  ('ЗК-ДЕМО-9006', 'SH-GL-6', 25), ('ЗК-ДЕМО-9006', 'SH-MT-6', 15)
+  ('ЗК-ДЕМО-9006', 'SH-GL-6', 14), ('ЗК-ДЕМО-9006', 'SH-MT-6', 6)
 ) v(num, sku, qty)
 join public.sales_order o on o.number = v.num join public.catalog_item i on i.sku = v.sku
 on conflict (order_id, item_id) do nothing;
+
+------------------------------------------------------------------------------
+-- Альфа Парк: франчайзи Артём сам работает на второй точке (выручка текущего месяца до вчера)
+------------------------------------------------------------------------------
+insert into public.daily_sale(location_id, partner_id, day, employee_id, currency, revenue_minor, returns_minor, services_count, source, entered_by, card_minor)
+select l.id, l.partner_id, d::date, u.id, l.currency, 1200000 + abs(hashtext('a2' || d::text)) % 700000, 0, 5 + abs(hashtext(d::text || 'a2')) % 7, 'self', u.id,
+  (1200000 + abs(hashtext('a2' || d::text)) % 700000) * 6 / 10
+from public.location l join public.app_user u on u.email = 'alpha.owner@demo.example.com'
+cross join lateral generate_series(date_trunc('month', now() at time zone l.timezone)::date, (now() at time zone l.timezone)::date - 1, interval '1 day') d
+where l.code = 'ALPHA-2'
+on conflict (location_id, day, employee_id) do nothing;
 
 ------------------------------------------------------------------------------
 -- Отчёт Беты за прошлый месяц: заявлено меньше, чем внесено в смены (сверка зафиксируется при отправке)

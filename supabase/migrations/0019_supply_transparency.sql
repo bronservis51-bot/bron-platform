@@ -219,7 +219,7 @@ begin
   return jsonb_build_object('month', v_from, 'days_in_period', v_to - v_from + 1, 'locations', coalesce((
     select jsonb_agg(x order by x.risk desc, x.partner_name, x.location_name) from (
       select y.*,
-        (case when y.film_phones_60d > 0 and y.services_60d < y.film_phones_60d * 0.6 then 2 else 0 end
+        (case when y.film_phones_60d > 0 and y.services_est_60d < y.film_phones_60d * 0.6 then 2 else 0 end
          + case when y.missing_days > 2 then 1 else 0 end
          + case when y.reductions > 0 then 2 else 0 end
          + case when y.report_diff_minor < 0 then 3 else 0 end
@@ -236,6 +236,9 @@ begin
              where o.location_id = l.id and o.status not in ('draft', 'cancelled') and i.phones_per_unit is not null
                and coalesce(o.submitted_at, o.created_at) >= v_to - 60), 0)::int as film_phones_60d,
           coalesce((select sum(s.services_count) from public.daily_sale s where s.location_id = l.id and s.day > v_to - 60 and s.day <= v_to), 0)::int as services_60d,
+          -- Оценка оклеек за те же 60 дней по среднему за день со сменами (смены могли вестись меньше 60 дней)
+          coalesce((select round(sum(s.services_count) * 60.0 / greatest(count(distinct s.day), 1)) from public.daily_sale s
+             where s.location_id = l.id and s.day > v_to - 60 and s.day <= v_to), 0)::int as services_est_60d,
           (select count(*) from public.daily_sale s where s.location_id = l.id and s.day between v_from and v_to and s.reduced_by_manager)::int as reductions,
           (select count(*) from public.daily_sale s where s.location_id = l.id and s.day between v_from and v_to and s.source = 'manager')::int as manager_entries,
           coalesce((select (d->>'reported_minor')::bigint - (d->>'daily_minor')::bigint from public.report_sales_check c
