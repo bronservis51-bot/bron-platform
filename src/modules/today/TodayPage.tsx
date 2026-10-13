@@ -63,10 +63,26 @@ export function TodayPage() {
       </section>
       <DataState query={q} skeleton={6}>
         {(d) => {
+          const earn = (cls: string) => {
+            if (!d.sales?.my || !d.sales.my.locations.length) return null;
+            const my = d.sales.my;
+            const tot = my.totals[0];
+            const cur = tot?.currency ?? my.locations[0].currency;
+            const todayDone = my.days.some((x) => x.day === my.locations[0].today);
+            return (
+              <Link to="/sales" className={`money-card dark today-earn ${cls}`}>
+                <div className="row between"><span className="l">{t('Мой заработок за месяц')}</span><span className="icon-tile" style={{ width: 32, height: 32 }}><Wallet size={16} /></span></div>
+                <div className="v"><Money minor={tot?.earnings_minor ?? 0} currency={cur} short /></div>
+                <div className="s">{t('смен')}: {tot?.shifts ?? 0} · {t('ставка')} {pct(my.locations[0].rate_bp)}</div>
+                <div className={`today-shift${todayDone ? ' done' : ''}`}>{todayDone ? t('Сегодняшняя смена внесена') : t('Внесите выручку за сегодня →')}</div>
+              </Link>
+            );
+          };
           const nothing = !d.my_tasks.length && !d.queue_tasks.length && !d.tickets.length && !d.approvals.length && !d.acks.length && !d.critical.length && !d.drafts.length && !d.balances.length;
           return (
             <div className="grid grid-main">
               <div className="stack">
+                {earn('mobile-only')}
                 {nothing && (
                   <Card><EmptyState icon={<CheckCircle2 size={22} aria-hidden />} title={t('Всё сделано')} text="Нет задач, согласований и обращений, требующих вашего действия." /></Card>
                 )}
@@ -151,20 +167,7 @@ export function TodayPage() {
                 )}
               </div>
               <div className="stack">
-                {d.sales?.my && d.sales.my.locations.length > 0 && (() => {
-                  const my = d.sales.my;
-                  const tot = my.totals[0];
-                  const cur = tot?.currency ?? my.locations[0].currency;
-                  const todayDone = my.days.some((x) => x.day === my.locations[0].today);
-                  return (
-                    <Link to="/sales" className="money-card dark today-earn">
-                      <div className="row between"><span className="l">{t('Мой заработок за месяц')}</span><span className="icon-tile" style={{ width: 32, height: 32 }}><Wallet size={16} /></span></div>
-                      <div className="v"><Money minor={tot?.earnings_minor ?? 0} currency={cur} short /></div>
-                      <div className="s">{t('смен')}: {tot?.shifts ?? 0} · {t('ставка')} {pct(my.locations[0].rate_bp)}</div>
-                      <div className={`today-shift${todayDone ? ' done' : ''}`}>{todayDone ? t('Сегодняшняя смена внесена') : t('Внесите выручку за сегодня →')}</div>
-                    </Link>
-                  );
-                })()}
+                {earn('desktop-only')}
                 {d.sales && d.sales.missing.length > 0 && (
                   <Card title={t('Не заполнена выручка')} icon={<CalendarX size={18} />} iconTone="danger" bodyless>
                     <ul className="list">

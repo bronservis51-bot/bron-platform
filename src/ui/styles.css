@@ -514,3 +514,5 @@ a.today-earn:hover { filter: brightness(1.08); }
   .btn-outline-pill { padding: 0 12px; font-size: 13px; min-height: 40px; }
   .product-title { font-size: 15px; }
 }
+.mobile-only { display: none !important; }
+@media (max-width: 960px) { .mobile-only { display: block !important; } .desktop-only { display: none !important; } }
