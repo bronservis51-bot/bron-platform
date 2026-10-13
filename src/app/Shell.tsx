@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Check, ChevronDown, LogOut, Menu, Search, User, WifiOff, X } from 'lucide-react';
+import { Bell, Check, ChevronDown, LogOut, Menu, Search, User, Users, WifiOff, X } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useSession } from '../platform/session';
 import { from, rows, commandsInFlight, onInFlightChange } from '../platform/backend';
-import { config } from '../platform/config';
+import { config, quickLoginEnabled } from '../platform/config';
 import { useT } from '../platform/i18n';
 import { Button } from '../ui';
 import { GROUP_TITLE, NAV, primaryMobile, type NavItem } from './nav';
@@ -93,6 +93,7 @@ function UserMenu() {
             <div className="faint">{me?.user.email}</div>
           </div>
           <div className="sep" />
+          {quickLoginEnabled && <button role="menuitem" onClick={() => void signOut()}><Users size={16} aria-hidden />{t('Сменить роль')}</button>}
           <button role="menuitem" onClick={() => void signOut()}><LogOut size={16} aria-hidden />{t('Выйти и очистить данные устройства')}</button>
         </div>
       )}

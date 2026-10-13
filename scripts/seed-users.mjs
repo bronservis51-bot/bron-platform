@@ -21,14 +21,31 @@ for (let page = 1; ; page++) {
   if (data.users.length < 200) break;
 }
 
+// Быстрый вход по ролям (демо): общий пароль из VITE_DEMO_QUICK_PASSWORD применяется ко всем демо-пользователям.
+const quick = process.env.VITE_DEMO_QUICK_PASSWORD?.trim();
+const existingById = new Map();
+for (let page = 1; ; page++) {
+  const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+  if (error) throw error;
+  data.users.forEach((u) => existingById.set(u.email, u.id));
+  if (data.users.length < 200) break;
+}
+
 const rows = [];
 for (const u of demoUsers) {
   if (existing.has(u.email)) {
-    console.log(`  = ${u.email} (уже есть; пароль не меняется)`);
-    rows.push({ ...u, password: '(без изменений)' });
+    if (quick) {
+      const { error } = await admin.auth.admin.updateUserById(existingById.get(u.email), { password: quick });
+      if (error) throw new Error(`${u.email}: ${error.message}`);
+      console.log(`  ~ ${u.email} (общий демо-пароль)`);
+      rows.push({ ...u, password: quick });
+    } else {
+      console.log(`  = ${u.email} (уже есть; пароль не меняется)`);
+      rows.push({ ...u, password: '(без изменений)' });
+    }
     continue;
   }
-  const password = `Demo-${randomBytes(4).toString('hex')}-${randomBytes(4).toString('hex')}`;
+  const password = quick || `Demo-${randomBytes(4).toString('hex')}-${randomBytes(4).toString('hex')}`;
   const { error } = await admin.auth.admin.createUser({
     email: u.email, password, email_confirm: true,
     user_metadata: { full_name: u.name, locale: u.locale ?? 'ru' },

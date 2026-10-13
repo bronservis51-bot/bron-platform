@@ -1,8 +1,59 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
+import { Building2, ChevronRight, Store, Users } from 'lucide-react';
 import { useSession } from '../platform/session';
-import { config } from '../platform/config';
+import { config, quickLoginEnabled } from '../platform/config';
 import { Alert, Button, Checkbox, Field, Input } from '../ui';
+import demoUsers from '../../supabase/seed/demo-users.json';
+
+interface DemoUser { email: string; name: string; group: 'company' | 'own' | 'partner'; title: string; scope: string; hint: string }
+
+const GROUPS: { id: DemoUser['group']; title: string; icon: typeof Building2 }[] = [
+  { id: 'company', title: 'Сотрудники компании', icon: Building2 },
+  { id: 'own', title: 'Собственная точка', icon: Store },
+  { id: 'partner', title: 'Партнёры франшизы', icon: Users },
+];
+
+/** Быстрый вход по ролям для демонстрации: выбор карточки вместо логина и пароля. */
+function QuickLogin({ onError }: { onError: (msg: string) => void }) {
+  const { signIn } = useSession();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState<string | null>(null);
+  async function enter(u: DemoUser) {
+    setBusy(u.email);
+    try {
+      await signIn(u.email, config.demoQuickPassword, false);
+      navigate('/', { replace: true });
+    } catch {
+      onError(!navigator.onLine ? 'Нет сети. Вход возможен только онлайн.' : 'Не удалось войти под этой ролью. Попробуйте ещё раз или обратитесь к администратору стенда.');
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <div>
+      <h2 style={{ fontSize: 'var(--fs-l)', marginBottom: 4 }}>Выберите роль</h2>
+      <p className="muted" style={{ marginBottom: 16 }}>Войдите под нужной должностью, чтобы увидеть систему её глазами. Сменить роль можно в меню справа вверху.</p>
+      {GROUPS.map((g) => (
+        <section key={g.id} style={{ marginBottom: 20 }}>
+          <div className="row" style={{ marginBottom: 8, color: 'var(--text-2)', fontWeight: 600 }}><g.icon size={16} aria-hidden />{g.title}</div>
+          <div className="grid grid-2" style={{ gap: 8 }}>
+            {(demoUsers as DemoUser[]).filter((u) => u.group === g.id).map((u) => (
+              <button key={u.email} type="button" className="role-card" onClick={() => void enter(u)} disabled={busy !== null} aria-busy={busy === u.email}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="role-title">{u.title}</span>
+                  <span className="role-scope">{u.scope}</span>
+                  <span className="role-hint">{u.hint}</span>
+                </span>
+                {busy === u.email ? <span className="spinner" aria-hidden /> : <ChevronRight size={18} aria-hidden />}
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 export function LoginPage() {
   const { status, signIn } = useSession();
@@ -32,7 +83,7 @@ export function LoginPage() {
 
   return (
     <div className="login-wrap">
-      <div className="login-card card">
+      <div className="login-card card" style={quickLoginEnabled ? { width: 'min(860px, 100%)' } : undefined}>
         <div className="card-body">
           <div style={{ marginBottom: 20 }}>
             <div className="brand-name" style={{ fontSize: 22 }}>Бронь Сервис</div>
@@ -45,6 +96,17 @@ export function LoginPage() {
               </Alert>
             </div>
           )}
+          {quickLoginEnabled && <QuickLogin onError={setError} />}
+          {quickLoginEnabled && error && <div className="alert tone-danger" role="alert" style={{ marginBottom: 12 }}><div className="alert-body">{error}</div></div>}
+          {quickLoginEnabled ? <details><summary className="muted" style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>Войти по email и паролю</summary>{form()}</details> : form()}
+          <p className="faint" style={{ marginTop: 16 }}>Учётные записи выдаёт администратор компании. Самостоятельная регистрация отключена.</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  function form() {
+    return (
           <form onSubmit={submit} noValidate>
             <Field label="Email" required>
               {(id) => <Input id={id} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />}
@@ -59,11 +121,8 @@ export function LoginPage() {
               <Button type="submit" variant="primary" block loading={busy} disabled={!email || !password}>Войти</Button>
             </div>
           </form>
-          <p className="faint" style={{ marginTop: 16 }}>Учётные записи выдаёт администратор компании. Самостоятельная регистрация отключена.</p>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  }
 }
 
 export function SetupPage() {
