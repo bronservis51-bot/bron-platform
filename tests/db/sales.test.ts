@@ -170,7 +170,7 @@ describe('смена, процент и прозрачность', () => {
   it('контроль выручки: Бета в зоне риска (мало услуг на купленную плёнку, отчёт меньше смен); франчайзи не видит', async () => {
     const [r] = await t.as<{ v: { locations: { location_name: string; risk: number; film_phones_60d: number; report_diff_minor: number }[] } }>(
       'fm@demo.example.com', `select public.sales_control($1::date) as v`, [today]);
-    const beta = r.v.locations.find((l) => l.location_name.startsWith('Бета'))!;
+    const beta = r.v.locations.find((l) => l.location_name.startsWith('Караганда'))!;
     expect(beta.film_phones_60d).toBeGreaterThan(0);
     expect(beta.risk).toBeGreaterThanOrEqual(3);
     expect(r.v.locations[0].risk).toBeGreaterThanOrEqual(beta.risk);

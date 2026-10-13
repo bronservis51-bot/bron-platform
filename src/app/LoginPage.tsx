@@ -7,7 +7,7 @@ import { config, quickLoginEnabled } from '../platform/config';
 import { Alert, Button, Checkbox, Field, Input } from '../ui';
 import demoUsers from '../../supabase/seed/demo-users.json';
 
-interface DemoUser { email: string; name: string; group: 'company' | 'own' | 'partner'; title: string; scope: string; hint: string }
+interface DemoUser { email: string; name: string; group: 'company' | 'own' | 'partner'; title: string; scope: string; hint: string; hidden?: boolean }
 
 const ROLE_ICON: Record<string, typeof Building2> = {
   'founder@demo.example.com': Crown, 'fm@demo.example.com': Rocket,
@@ -59,7 +59,7 @@ function QuickLogin({ onError }: { onError: (msg: string) => void }) {
         <section key={g.id} style={{ marginBottom: 20 }}>
           <div className="row" style={{ marginBottom: 8, color: 'var(--text-2)', fontWeight: 600 }}><g.icon size={16} aria-hidden />{g.title}</div>
           <div className="grid grid-2" style={{ gap: 8 }}>
-            {(demoUsers as DemoUser[]).filter((u) => u.group === g.id).map((u) => {
+            {(demoUsers as DemoUser[]).filter((u) => u.group === g.id && !u.hidden).map((u) => {
               const Icon = ROLE_ICON[u.email] ?? Headset;
               return (
               <button key={u.email} type="button" className={`role-card ${u.group}`} onClick={() => void enter(u)} disabled={busy !== null} aria-busy={busy === u.email}>

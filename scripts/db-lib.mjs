@@ -40,6 +40,7 @@ export async function createDb({ dataDir, seed = true, users = true, onUser } = 
       await run(db, join(root, 'supabase/seed/seed_after_users.sql'), 'Seed после пользователей');
       await run(db, join(root, 'supabase/seed/seed_v2.sql'), 'Seed v2 (каталог, выручка)');
       await run(db, join(root, 'supabase/seed/seed_v3.sql'), 'Seed v3 (роли, смены, прозрачность, поставки)');
+      await run(db, join(root, 'supabase/seed/seed_v4.sql'), 'Seed v4 (имена франчайзи и города)');
     }
   }
   return db;
