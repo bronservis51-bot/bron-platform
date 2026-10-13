@@ -38,6 +38,9 @@ export const getPayment = (id: string) => single<Payment>(from('payment').select
 export const getPaymentBalance = (id: string) => single<PaymentBalance>(from('v_payment_balance').select('*').eq('payment_id', id));
 export const events = (type: string, id: string) => rows<{ id: number; actor_id: string | null; action: string; detail: Record<string, unknown> | null; comment: string | null; at: string }>(
   from('royalty_event').select('*').eq('subject_type', type).eq('subject_id', id).order('at'));
+export interface SalesCheck { report_id: string; period: string; reported_gross_minor: number; daily_gross_minor: number; diff_minor: number; missing_days: number;
+  detail: { location_id: string; location_name: string; reported_minor: number; daily_minor: number; missing_days: number }[]; checked_at: string }
+export const salesCheck = (reportId: string) => rows<SalesCheck>(from('report_sales_check').select('*').eq('report_id', reportId)).then((r) => r[0] ?? null);
 export const notes = (type: string, id: string) => rows<{ id: string; body: string; author_id: string; created_at: string }>(from('royalty_note').select('*').eq('subject_type', type).eq('subject_id', id).order('created_at'));
 
 export interface LineInput { location_id: string; gross_minor: string; returns_minor: string; excluded_minor: string; zero_reason: string | null }

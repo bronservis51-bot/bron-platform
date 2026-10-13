@@ -54,14 +54,11 @@ join public.catalog_item i on i.sku = v.sku
 on conflict (item_id, warehouse) do update set available_qty = excluded.available_qty, refreshed_at = excluded.refreshed_at;
 
 ------------------------------------------------------------------------------
--- Ставки процента сотрудника (тестовые): 10% по компании, 12% у партнёра Альфа
+-- Базовый процент менеджера продаж — 20 % (решение владельца); франчайзи меняет его для своих сотрудников
 ------------------------------------------------------------------------------
 insert into public.commission_policy(partner_id, location_id, rate_bp, effective_from, note, is_test)
-values (null, null, 1000, date '2024-01-01', 'Тестовая ставка по умолчанию', true)
-on conflict (partner_id, location_id, effective_from) do nothing;
-insert into public.commission_policy(partner_id, location_id, rate_bp, effective_from, note, is_test)
-select id, null, 1200, date '2024-01-01', 'Тестовая ставка партнёра', true from public.partner where code = 'ALPHA'
-on conflict (partner_id, location_id, effective_from) do nothing;
+values (null, null, 2000, date '2024-01-01', 'Базовый процент менеджера продаж', false)
+on conflict do nothing;
 
 ------------------------------------------------------------------------------
 -- Ежедневная выручка: текущий месяц до вчера (с пропусками) и прошлый месяц для партнёра Бета (отчёт ещё не сдан)

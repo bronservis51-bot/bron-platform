@@ -18,8 +18,7 @@ import { useLocations, usePartners, useUserNames } from '../shared/lookups';
 import { salesForReport } from '../sales/api';
 import {
   accrualForReport, adjustments, allocationsFor, contractLocations, contracts, disputes, events, getAccrual, getBalance, getCalculation, getPayment,
-  getPaymentBalance, getReport, lines, listBalances, listPayments, listReports, notes, policies, revisions, ROY_EVENT, royaltyCommands, type LineInput,
-} from './api';
+  getPaymentBalance, getReport, lines, listBalances, listPayments, listReports, notes, policies, revisions, ROY_EVENT, royaltyCommands, salesCheck, type LineInput } from './api';
 
 const pct = (bp: number) => `${(bp / 100).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })}%`;
 
@@ -278,6 +277,7 @@ export function ReportPage() {
   const pol = useQuery({ queryKey: ['policies', r?.contract_id], enabled: Boolean(r?.contract_id), queryFn: () => policies(r!.contract_id) });
   const ev = useQuery({ queryKey: ['report', id, 'events'], queryFn: () => events('revenue_report', id) });
   const nt = useQuery({ queryKey: ['report', id, 'notes'], enabled: can('finance.internal'), queryFn: () => notes('revenue_report', id) });
+  const check = useQuery({ queryKey: ['report', id, 'check', r?.status], enabled: Boolean(r && !['draft', 'needs_correction'].includes(r.status)), queryFn: () => salesCheck(id) });
   const daily = useQuery({ queryKey: ['sales', 'report', r?.contract_id, r?.period], enabled: Boolean(r && ['draft', 'needs_correction'].includes(r.status)),
     queryFn: () => salesForReport(r!.contract_id, r!.period) });
 
@@ -385,6 +385,15 @@ export function ReportPage() {
                   {r.status === 'approved' && can('royalty.publish') && accrual.data && <Button onClick={() => setDialog('close')}>Закрыть период</Button>}
                 </>
               } />
+            {check.data && (
+              <div style={{ marginBottom: 16 }}>
+                <Alert tone={check.data.diff_minor < 0 ? 'danger' : 'success'} title={check.data.diff_minor < 0 ? t('Отчёт меньше ежедневной выручки') : t('Отчёт сходится с ежедневной выручкой')}>
+                  {t('В отчёте')}: {formatMoney(check.data.reported_gross_minor, cur, intlLocale())} · {t('по сменам')}: {formatMoney(check.data.daily_gross_minor, cur, intlLocale())}
+                  {check.data.diff_minor !== 0 && <> · {t('разница')}: <strong>{formatMoney(check.data.diff_minor, cur, intlLocale())}</strong></>}
+                  {check.data.missing_days > 0 && <> · {t('дней без смен')}: {check.data.missing_days}</>}
+                </Alert>
+              </div>
+            )}
             {r.status === 'needs_correction' && r.return_reason && <div style={{ marginBottom: 16 }}><Alert tone="danger" title="Финансы вернули отчёт">{r.return_reason}</Alert></div>}
             <div className="grid grid-main">
               <div className="stack">
@@ -542,6 +551,16 @@ export function ReportPage() {
                 : dialog === 'approve' ? [['Расчётная база', <Money key="b" minor={serverTotal} currency={cur} />]] : undefined}
             >
               {dialog === 'submit' && <p className="muted">После отправки редакция фиксируется. Исправления — новой редакцией после возврата финансами.</p>}
+              {dialog === 'submit' && daily.data && (() => {
+                const dailyGross = daily.data.locations.reduce((a, l) => a + toBigInt(l.gross_minor), 0n);
+                const formGross = sumMinor((form ?? []).map((l) => l.gross_minor));
+                return dailyGross > 0n && formGross < dailyGross ? (
+                  <Alert tone="danger" title="Выручка в отчёте меньше, чем по сменам">
+                    {t('По ежедневным сменам')}: {formatMoney(dailyGross, cur, intlLocale())}, {t('в отчёте')}: {formatMoney(formGross, cur, intlLocale())}.{' '}
+                    {t('Расхождение будет зафиксировано и видно финансам. Если суммы в сменах ошибочны — сначала исправьте их в разделе «Выручка».')}
+                  </Alert>
+                ) : null;
+              })()}
               {dialog === 'publish' && <p className="muted">Публиковать должен не тот сотрудник, кто утверждал расчёт (разделение обязанностей).</p>}
               {dialog === 'close' && <p className="muted">После закрытия суммы периода не редактируются; исправления оформляются корректировкой с причиной.</p>}
               {dialog === 'return' && <Field label="Что исправить" required>{(fid) => <Textarea id={fid} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>}

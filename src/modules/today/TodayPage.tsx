@@ -1,7 +1,7 @@
 // «Сегодня» (CORE-01, UX-02): что сделать, до какого срока, для какой точки и что мешает.
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { AlertTriangle, BookOpen, CalendarX, CheckCircle2, ClipboardList, FileText, GraduationCap, Headset, Inbox, Landmark, PencilLine, Rocket, ShoppingCart, Stamp, Wallet } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarX, Clock, Truck, CheckCircle2, ClipboardList, FileText, GraduationCap, Headset, Inbox, Landmark, PencilLine, Rocket, ShoppingCart, Stamp, Wallet } from 'lucide-react';
 import { BrandPattern, LogoMark } from '../../ui/brand';
 import { command } from '../../platform/backend';
 import { useScopeFilter, useSession } from '../../platform/session';
@@ -10,7 +10,8 @@ import { intlLocale, useT } from '../../platform/i18n';
 import { Badge, Card, DataState, Due, EmptyState, LinkButton, Money } from '../../ui';
 import { st, TASK_STATUS, TICKET_STATUS, URGENCY } from '../../ui/status';
 import type { MyEarnings } from '../sales/api';
-import { pct } from '../sales/api';
+import { ShiftPanel } from '../sales/ShiftPanel';
+import { ProductMockup, type Visual } from '../procurement/Mockup';
 
 interface Today {
   my_tasks: { id: string; number: string; title: string; status: string; due_at: string | null; priority: string; location_name: string | null; partner_name: string | null; status_reason: string | null }[];
@@ -22,7 +23,8 @@ interface Today {
   critical: { id: string; title: string; body: string | null; link: string | null; created_at: string }[];
   openings: { id: string; number: string; status: string; planned_open_on: string; location_name: string; done_tasks: number; total_tasks: number; critical_open: number; overdue_tasks: number; date_at_risk: boolean }[];
   balances: { accrual_id: string; number: string; period: string; currency: string; outstanding_minor: string; due_on: string; overdue: boolean }[];
-  sales?: { my: MyEarnings | null; missing: { location_id: string; location_name: string; days: number }[] };
+  sales?: { my: MyEarnings | null; missing: { location_id: string; location_name: string; days: number }[]; on_shift?: { location_name: string; name: string; opened_at: string }[] };
+  supply?: { new_items: { id: string; name: string; subtitle: string | null; visual: Visual; sku: string }[]; waiting: { id: string; name: string; available: boolean; expected_on: string | null }[] };
 }
 
 export function TodayPage() {
@@ -63,21 +65,8 @@ export function TodayPage() {
       </section>
       <DataState query={q} skeleton={6}>
         {(d) => {
-          const earn = (cls: string) => {
-            if (!d.sales?.my || !d.sales.my.locations.length) return null;
-            const my = d.sales.my;
-            const tot = my.totals[0];
-            const cur = tot?.currency ?? my.locations[0].currency;
-            const todayDone = my.days.some((x) => x.day === my.locations[0].today);
-            return (
-              <Link to="/sales" className={`money-card dark today-earn ${cls}`}>
-                <div className="row between"><span className="l">{t('Мой заработок за месяц')}</span><span className="icon-tile" style={{ width: 32, height: 32 }}><Wallet size={16} /></span></div>
-                <div className="v"><Money minor={tot?.earnings_minor ?? 0} currency={cur} short /></div>
-                <div className="s">{t('смен')}: {tot?.shifts ?? 0} · {t('ставка')} {pct(my.locations[0].rate_bp)}</div>
-                <div className={`today-shift${todayDone ? ' done' : ''}`}>{todayDone ? t('Сегодняшняя смена внесена') : t('Внесите выручку за сегодня →')}</div>
-              </Link>
-            );
-          };
+          const earn = (cls: string) => (d.sales?.my && (d.sales.my.locations.length || d.sales.my.open_shift)
+            ? <div className={cls}><ShiftPanel data={d.sales.my} onChanged={() => void q.refetch()} compact /></div> : null);
           const nothing = !d.my_tasks.length && !d.queue_tasks.length && !d.tickets.length && !d.approvals.length && !d.acks.length && !d.critical.length && !d.drafts.length && !d.balances.length;
           return (
             <div className="grid grid-main">
@@ -168,6 +157,38 @@ export function TodayPage() {
               </div>
               <div className="stack">
                 {earn('desktop-only')}
+                {d.sales?.on_shift && d.sales.on_shift.length > 0 && (
+                  <Card title={t('Сейчас на смене')} icon={<Clock size={18} />} iconTone="dark" bodyless>
+                    <ul className="list">
+                      {d.sales.on_shift.map((w, i) => (
+                        <li key={i} className="list-item" style={{ cursor: 'default' }}>
+                          <div className="main-col"><div className="title"><span className="on-shift-dot" />{w.name}</div><div className="meta">{w.location_name}</div></div>
+                          <div className="side faint">{t('с')} {new Date(w.opened_at).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
+                {d.supply && (d.supply.new_items.length > 0 || d.supply.waiting.length > 0) && (
+                  <Card title={t('Поставки')} icon={<Truck size={18} />} actions={<Link to="/catalog">{t('В магазин')}</Link>} bodyless>
+                    <ul className="list">
+                      {d.supply.waiting.map((w) => (
+                        <li key={w.id}><Link className="list-item" to="/catalog">
+                          <div className="main-col"><div className="title">{w.name}</div><div className="meta">{t('Вы ждёте этот товар')}</div></div>
+                          <div className="side">{w.available ? <Badge tone="success">{t('в наличии')}</Badge>
+                            : w.expected_on ? <Badge tone="info" icon={false}>{t('ожидается')} {formatDate(w.expected_on, intlLocale())}</Badge> : <Badge tone="neutral">{t('нет в наличии')}</Badge>}</div>
+                        </Link></li>
+                      ))}
+                      {d.supply.new_items.map((n) => (
+                        <li key={n.id}><Link className="list-item" to="/catalog">
+                          <span className="today-mockup"><ProductMockup visual={n.visual} seed={n.sku} /></span>
+                          <div className="main-col"><div className="title">{n.name}</div><div className="meta">{n.subtitle}</div></div>
+                          <div className="side"><Badge tone="info" icon={false}>{t('Новинка')}</Badge></div>
+                        </Link></li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
                 {d.sales && d.sales.missing.length > 0 && (
                   <Card title={t('Не заполнена выручка')} icon={<CalendarX size={18} />} iconTone="danger" bodyless>
                     <ul className="list">

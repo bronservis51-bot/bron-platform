@@ -10,7 +10,7 @@ export interface FileRow { id: string; name: string; mime: string; size_bytes: n
 const MAX_IMAGE_SIDE = 2000;
 
 /** Сжатие фото перед загрузкой (PWA-07); EXIF и геолокация не сохраняются при перекодировании. */
-async function compressImage(file: File): Promise<Blob> {
+export async function compressImage(file: File): Promise<Blob> {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type) || typeof createImageBitmap !== 'function') return file;
   try {
     const bmp = await createImageBitmap(file);
@@ -26,7 +26,7 @@ async function compressImage(file: File): Promise<Blob> {
   }
 }
 
-async function sha256(blob: Blob): Promise<string> {
+export async function sha256(blob: Blob): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }

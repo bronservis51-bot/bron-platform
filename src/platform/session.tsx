@@ -95,6 +95,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
       qc.clear();
+      // Медленная сеть (сервер демо-стенда далеко): первый экран грузится параллельно с профилем, а не после него
+      void qc.prefetchQuery({ queryKey: ['today', null, null], queryFn: () => command('today', { partner: null, location: null }) });
       await loadMe();
     },
     [loadMe, qc],

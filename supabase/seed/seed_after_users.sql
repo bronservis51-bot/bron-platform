@@ -13,7 +13,7 @@ create function pg_temp.contract(p_code text) returns uuid language sql as $$
 create function pg_temp.item(p_sku text) returns uuid language sql as $$ select id from public.catalog_item where sku = p_sku $$;
 
 ------------------------------------------------------------------------------
--- База знаний: статьи создаёт редактор, публикует руководитель направления (разделение обязанностей)
+-- База знаний: статьи создаёт редактор, публикует руководитель компании (разделение обязанностей)
 ------------------------------------------------------------------------------
 do $$
 declare v jsonb; v_art uuid; v_rev uuid; r record;
@@ -129,7 +129,7 @@ $md$## Плоттер режет со смещением
     v_art := (v ->> 'article_id')::uuid;
     perform public.article_save_draft(v_art, r.title, r.summary, r.body, null, 'Первая редакция');
     perform public.article_submit(v_art);
-    perform pg_temp.act_as('head@demo.example.com');
+    perform pg_temp.act_as('founder@demo.example.com');
     perform public.article_update_meta(v_art, null, null, r.audience, null, pg_temp.uid('editor@demo.example.com'),
       array['демо'], current_date + 180, r.required);
     select id into v_rev from public.article_revision where article_id = v_art and status = 'in_review';
@@ -202,14 +202,14 @@ begin
   perform pg_temp.act_as('finance1@demo.example.com');
   perform public.report_take_review(r.id);
   perform public.report_approve(r.id, null, 'reported', 'Сверено с прошлым периодом');
-  perform pg_temp.act_as('finance2@demo.example.com');
+  perform pg_temp.act_as('founder@demo.example.com');
   v := public.accrual_publish(r.id, 'seed-publish-a3'); v_acc := (v ->> 'accrual_id')::uuid;
   perform public.period_close(r.id);
   perform pg_temp.act_as('alpha.owner@demo.example.com');
   v := public.payment_report(pg_temp.contract('ALPHA'), 5705000, 'RUB', p3 + 45, 'П/п 118', 'Оплата роялти', 'seed-payrep-a3'); v_pay := (v ->> 'payment_id')::uuid;
   perform pg_temp.act_as('finance1@demo.example.com');
   perform public.payment_register(pg_temp.partner('ALPHA'), pg_temp.contract('ALPHA'), 5705000, 'RUB', p3 + 45, 'BANK-DEMO-0001', v_pay, 'seed-payreg-a3');
-  perform pg_temp.act_as('finance2@demo.example.com');
+  perform pg_temp.act_as('founder@demo.example.com');
   perform public.payment_confirm(v_pay);
   perform pg_temp.act_as('finance1@demo.example.com');
   perform public.allocation_create(v_pay, v_acc, 5705000, 'seed-alloc-a3');
@@ -224,13 +224,13 @@ begin
   perform pg_temp.act_as('finance1@demo.example.com');
   perform public.report_take_review(r.id);
   perform public.report_approve(r.id, null, 'reported', null);
-  perform pg_temp.act_as('finance2@demo.example.com');
+  perform pg_temp.act_as('founder@demo.example.com');
   v := public.accrual_publish(r.id, 'seed-publish-a2'); v_acc := (v ->> 'accrual_id')::uuid;
   perform public.period_close(r.id);
   perform pg_temp.act_as('finance1@demo.example.com');
   v := public.payment_register(pg_temp.partner('ALPHA'), pg_temp.contract('ALPHA'), 3000000, 'RUB', p2 + 40, 'BANK-DEMO-0002', null, 'seed-payreg-a2');
   v_pay := (v ->> 'payment_id')::uuid;
-  perform pg_temp.act_as('finance2@demo.example.com');
+  perform pg_temp.act_as('founder@demo.example.com');
   perform public.payment_confirm(v_pay);
   perform pg_temp.act_as('finance1@demo.example.com');
   perform public.allocation_create(v_pay, v_acc, 3000000, 'seed-alloc-a2');
@@ -253,13 +253,13 @@ begin
   perform pg_temp.act_as('finance1@demo.example.com');
   perform public.report_take_review(r.id);
   perform public.report_approve(r.id, null, 'reported', null);
-  perform pg_temp.act_as('finance2@demo.example.com');
+  perform pg_temp.act_as('founder@demo.example.com');
   v := public.accrual_publish(r.id, 'seed-publish-b2'); v_acc := (v ->> 'accrual_id')::uuid;
   perform public.period_close(r.id);
   perform pg_temp.act_as('finance1@demo.example.com');
   v := public.payment_register(pg_temp.partner('BETA'), pg_temp.contract('BETA'), 170000000, 'KZT', p2 + 44, 'BANK-DEMO-0003', null, 'seed-payreg-b2');
   v_pay := (v ->> 'payment_id')::uuid;
-  perform pg_temp.act_as('finance2@demo.example.com');
+  perform pg_temp.act_as('founder@demo.example.com');
   perform public.payment_confirm(v_pay);
   perform pg_temp.act_as('finance1@demo.example.com');
   perform public.allocation_create(v_pay, v_acc, (select outstanding_minor from public.v_accrual_balance where accrual_id = v_acc), 'seed-alloc-b2');

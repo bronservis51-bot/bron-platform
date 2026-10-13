@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Coins, PencilLine, Percent, Store, Wallet } from 'lucide-react';
+import { Camera, CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Coins, PencilLine, Percent, Store, Wallet } from 'lucide-react';
 import { useSession } from '../../platform/session';
 import { addDays, formatPeriod } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
@@ -11,7 +11,8 @@ import { formatMoneyShort, toBigInt } from '../../platform/money';
 import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, EmptyState, Field, Input, LinkButton, Money, MoneyInput, PageHeader, Progress, Select, Tabs, Textarea } from '../../ui';
 import { useToast } from '../../ui/toast';
 import { useLocationsWith } from '../shared/lookups';
-import { earnings, myEarnings, pct, salesCommands, salesMonth, type MyEarnings, type SaleEntry, type SalesMonth } from './api';
+import { earnings, myEarnings, pct, salesCommands, salesMonth, type MyEarnings, type SaleEntry, type SalesEmployee, type SalesMonth } from './api';
+import { ShiftPanel } from './ShiftPanel';
 
 const monthOf = (iso: string) => `${iso.slice(0, 7)}-01`;
 function shiftMonth(month: string, n: number) {
@@ -65,18 +66,20 @@ function ShiftForm({ data, onSaved }: { data: MyEarnings; onSaved: () => void })
   const existing = data.days.find((d) => d.location_id === l?.id && d.day === day);
   const [revenue, setRevenue] = useState('0');
   const [returns, setReturns] = useState('0');
+  const [card, setCard] = useState('0');
   const [services, setServices] = useState('');
   const [comment, setComment] = useState('');
   const formKey = `${l?.id}:${day}:${existing?.revision ?? 0}`;
   useEffect(() => {
     setRevenue(String(existing?.revenue_minor ?? 0));
+    setCard(String(existing?.card_minor ?? 0));
     setReturns(String(existing?.returns_minor ?? 0));
     setServices(existing ? String(existing.services_count) : '');
     setComment(existing?.comment ?? '');
   }, [formKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = useMutation({
     mutationFn: () => salesCommands.save({ location: l!.id, day, employee: null, revenue, returns, services: Number(services || 0), comment: comment || null,
-      expected_revision: existing?.revision ?? null }),
+      expected_revision: existing?.revision ?? null, card: card === '0' ? null : card }),
     onSuccess: () => { toast(existing ? 'Смена обновлена' : 'Выручка за смену сохранена'); onSaved(); },
   });
   if (!l) return null;
@@ -84,7 +87,10 @@ function ShiftForm({ data, onSaved }: { data: MyEarnings; onSaved: () => void })
   const earn = net > 0n ? earnings(net, l.rate_bp) : 0n;
   const days = l.can_manage ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2];
   return (
-    <Card title={existing ? 'Исправить смену' : 'Внести выручку за смену'} icon={<PencilLine size={18} />} iconTone="dark">
+    <details className="card manual-entry">
+      <summary className="card-body"><span className="icon-tile dark" style={{ width: 32, height: 32 }}><PencilLine size={16} /></span>
+        <span><strong>{t('Внести или исправить выручку за другой день')}</strong><br /><span className="faint">{t('Если забыли закрыть смену или нужно исправить сумму')}</span></span></summary>
+      <div className="card-body">
       <div className="grid grid-2">
         {data.locations.length > 1 && (
           <Field label="Точка">{(id) => <Select id={id} value={l.id} onChange={(e) => setLoc(e.target.value)}>{data.locations.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select>}</Field>
@@ -95,6 +101,7 @@ function ShiftForm({ data, onSaved }: { data: MyEarnings; onSaved: () => void })
           </Select>}
         </Field>
         <Field label={`Выручка, ${l.currency}`} required>{(id) => <MoneyInput key={`r${formKey}`} id={id} value={revenue} currency={l.currency} onChange={setRevenue} />}</Field>
+        <Field label={`Из неё по карте, ${l.currency}`} hint="По отчёту терминала">{(id) => <MoneyInput key={`c${formKey}`} id={id} value={card} currency={l.currency} onChange={setCard} invalid={toBigInt(card) > toBigInt(revenue)} />}</Field>
         <Field label={`Возвраты, ${l.currency}`} hint="Если были">{(id) => <MoneyInput key={`b${formKey}`} id={id} value={returns} currency={l.currency} onChange={setReturns} invalid={net < 0n} />}</Field>
         <Field label="Услуг за смену" hint="Сколько оклеек и работ">{(id) => <Input id={id} inputMode="numeric" value={services} onChange={(e) => setServices(e.target.value.replace(/\D/g, ''))} />}</Field>
         <Field label="Комментарий">{(id) => <Textarea id={id} rows={1} value={comment} onChange={(e) => setComment(e.target.value)} />}</Field>
@@ -105,14 +112,16 @@ function ShiftForm({ data, onSaved }: { data: MyEarnings; onSaved: () => void })
           <div className="faint">{t('Ваш процент')} {pct(l.rate_bp)} {t('от выручки за вычетом возвратов')}</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{t('За эту смену')}: {formatMoneyShort(earn, l.currency, intlLocale())}</div>
         </div>
-        <Button variant="primary" loading={save.isPending} disabled={toBigInt(revenue) <= 0n || net < 0n} onClick={() => save.mutate()}>{existing ? t('Сохранить изменения') : t('Сохранить смену')}</Button>
+        <Button variant="primary" loading={save.isPending} disabled={toBigInt(revenue) <= 0n || net < 0n || toBigInt(card) > toBigInt(revenue)} onClick={() => save.mutate()}>{existing ? t('Сохранить изменения') : t('Сохранить смену')}</Button>
       </div>
       {unusual(revenue, data.days.filter((x) => x.location_id === l.id && x.day !== day)) && (
         <div style={{ marginTop: 10 }}><Alert tone="warning" title="Проверьте сумму">{t('Она намного больше вашей обычной смены. Если всё верно — сохраняйте.')}</Alert></div>
       )}
-      {existing?.source === 'manager' && <div className="faint" style={{ marginTop: 8 }}>{t('Эту смену внёс управляющий или владелец точки.')}</div>}
+      {existing?.source === 'manager' && <div className="faint" style={{ marginTop: 8 }}>{t('Эту смену внёс управляющий или франчайзи.')}</div>}
+      {existing?.reduced_by_manager && <div className="faint" style={{ marginTop: 8 }}>{t('Сумму этой смены уменьшил франчайзи или управляющий — причина в комментарии.')}</div>}
       <ActionError error={save.error} />
-    </Card>
+      </div>
+    </details>
   );
 }
 
@@ -132,6 +141,7 @@ function MyShiftTab() {
         return (
           <div className="stack">
             {!d.locations.length && <Alert tone="info">{t('Вы сейчас не закреплены за точкой — внести выручку нельзя. История за прошлые месяцы ниже.')}</Alert>}
+            {month === max && (d.locations.length > 0 || d.open_shift) && <ShiftPanel data={d} onChanged={refresh} />}
             {month === max && d.locations.length > 0 && <ShiftForm data={d} onSaved={refresh} />}
             <div className="row between">
               <h2 style={{ margin: 0, fontSize: 18 }}>{t('Мой заработок')}</h2>
@@ -152,7 +162,10 @@ function MyShiftTab() {
                   <thead><tr><th>{t('День')}</th><th>{t('Точка')}</th><th className="r">{t('Выручка')}</th><th className="r">{t('Возвраты')}</th><th className="r">{t('Заработок')}</th></tr></thead>
                   <tbody>{d.days.map((x) => (
                     <tr key={x.id}>
-                      <td>{dayLabel(x.day)}{x.source === 'manager' && <> <Badge tone="neutral" icon={false} title="Внёс управляющий или владелец">{t('управляющий')}</Badge></>}{x.locked && <> <Badge tone="neutral">{t('сдано')}</Badge></>}</td>
+                      <td>{dayLabel(x.day)}{x.source === 'manager' && <> <Badge tone="neutral" icon={false} title="Внёс управляющий или франчайзи">{t('управляющий')}</Badge></>}
+                        {x.reduced_by_manager && <> <Badge tone="warning" icon={false} title={x.comment ?? undefined}>{t('уменьшено')}</Badge></>}
+                        {(x.files ?? 0) > 0 && <span className="faint" title={t('Фото кассового отчёта')}> <Camera size={13} aria-hidden /></span>}
+                        {x.locked && <> <Badge tone="neutral">{t('сдано')}</Badge></>}</td>
                       <td>{x.location_name}</td>
                       <td className="r"><Money minor={x.revenue_minor} currency={x.currency} short /></td>
                       <td className="r">{x.returns_minor ? <Money minor={x.returns_minor} currency={x.currency} short /> : '—'}</td>
@@ -162,7 +175,7 @@ function MyShiftTab() {
                 </table></div>
               )}
             </Card>
-            <p className="faint">{t('Заработок предварительный: окончательную сумму подтверждает бухгалтерия. Ставки в демо — тестовые.')}</p>
+            <p className="faint">{t('Заработок предварительный: окончательную сумму подтверждает бухгалтерия. Процент задаёт франчайзи или управляющий точки.')}</p>
           </div>
         );
       }}
@@ -181,12 +194,13 @@ function CellDialog({ edit, m, onClose, onSaved }: { edit: CellEdit | null; m: S
   const [employee, setEmployee] = useState('');
   const [revenue, setRevenue] = useState('0');
   const [returns, setReturns] = useState('0');
+  const [card, setCard] = useState('0');
   const [services, setServices] = useState('');
   const [comment, setComment] = useState('');
   const [remove, setRemove] = useState(false);
   useEffect(() => {
     if (!edit) return;
-    setEmployee(edit.employee); setRemove(false);
+    setEmployee(edit.employee); setRemove(false); setCard(String(edit.entry?.card_minor ?? 0));
     setRevenue(String(edit.entry?.revenue_minor ?? 0)); setReturns(String(edit.entry?.returns_minor ?? 0));
     setServices(edit.entry ? String(edit.entry.services_count) : ''); setComment(edit.entry?.comment ?? '');
   }, [edit]);
@@ -199,35 +213,80 @@ function CellDialog({ edit, m, onClose, onSaved }: { edit: CellEdit | null; m: S
         return 'Запись удалена';
       }
       await salesCommands.save({ location: m.location.id, day: edit!.day, employee, revenue, returns, services: Number(services || 0), comment: comment || null,
-        expected_revision: entry?.revision ?? null });
+        expected_revision: entry?.revision ?? null, card: card === '0' ? null : card });
       return 'Выручка сохранена';
     },
     onSuccess: (msg) => { toast(msg); onSaved(); onClose(); },
   });
   const net = toBigInt(revenue) - toBigInt(returns);
+  const rate = m.employees.find((x) => x.id === employee)?.rate_bp ?? m.rate_bp;
+  const reducing = entry?.source === 'self' && toBigInt(revenue) < toBigInt(entry.revenue_minor);
   return (
     <ConfirmDialog open={Boolean(edit)} title={edit ? `${t('Выручка за')} ${dayLabel(edit.day)}` : ''} confirmLabel={remove ? 'Удалить запись' : 'Сохранить'} danger={remove}
       busy={act.isPending} error={act.error} onClose={() => { act.reset(); onClose(); }} onConfirm={() => act.mutate()}>
       {edit && <div key={`${edit.day}:${employee}:${entry?.revision ?? 0}`}>
         <Field label="Сотрудник">{(id) => <Select id={id} value={employee} onChange={(e) => {
           const next = m.entries.find((x) => x.day === edit.day && x.employee_id === e.target.value);
-          setEmployee(e.target.value); setRevenue(String(next?.revenue_minor ?? 0)); setReturns(String(next?.returns_minor ?? 0));
+          setEmployee(e.target.value); setRevenue(String(next?.revenue_minor ?? 0)); setReturns(String(next?.returns_minor ?? 0)); setCard(String(next?.card_minor ?? 0));
           setServices(next ? String(next.services_count) : ''); setComment(next?.comment ?? '');
         }}>{m.employees.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select>}</Field>
         {!remove && <div className="grid grid-2">
           <Field label={`Выручка, ${cur}`} required>{(id) => <MoneyInput id={id} value={revenue} currency={cur} onChange={setRevenue} />}</Field>
+          <Field label={`Из неё по карте, ${cur}`}>{(id) => <MoneyInput id={id} value={card} currency={cur} onChange={setCard} invalid={toBigInt(card) > toBigInt(revenue)} />}</Field>
           <Field label={`Возвраты, ${cur}`}>{(id) => <MoneyInput id={id} value={returns} currency={cur} onChange={setReturns} invalid={net < 0n} />}</Field>
           <Field label="Услуг">{(id) => <Input id={id} inputMode="numeric" value={services} onChange={(e) => setServices(e.target.value.replace(/\D/g, ''))} />}</Field>
-          <div className="faint" style={{ alignSelf: 'end', paddingBottom: 12 }}>{t('Заработок сотрудника')}: <strong>{formatMoneyShort(net > 0n ? earnings(net, m.rate_bp) : 0n, cur, intlLocale())}</strong> ({pct(m.rate_bp)})</div>
+          <div className="faint" style={{ alignSelf: 'end', paddingBottom: 12 }}>{t('Заработок сотрудника')}: <strong>{formatMoneyShort(net > 0n ? earnings(net, rate) : 0n, cur, intlLocale())}</strong> ({pct(rate)})</div>
         </div>}
         {!remove && unusual(revenue, m.entries.filter((x) => !(x.day === edit.day && x.employee_id === employee))) && (
           <Alert tone="warning" title="Проверьте сумму">{t('Она намного больше обычной смены на этой точке. Если всё верно — сохраняйте.')}</Alert>
         )}
         <Field label={remove ? 'Причина удаления' : 'Комментарий'} required={remove}>{(id) => <Textarea id={id} rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={entry ? undefined : t('Например: смена не была внесена вовремя')} />}</Field>
         {entry && <label className="row faint" style={{ gap: 8 }}><input type="checkbox" checked={remove} onChange={(e) => setRemove(e.target.checked)} />{t('Удалить эту запись (ошибочная смена)')}</label>}
-        {entry?.source === 'self' && !remove && <p className="faint">{t('Сотрудник внёс эту смену сам. Изменение увидит он и останется в истории.')}</p>}
+        {reducing && !remove && <Alert tone="warning" title="Сотрудник внёс эту смену сам">{t('Уменьшить сумму можно только с причиной в комментарии. Сотрудник получит уведомление, а компания увидит отметку «уменьшено».')}</Alert>}
+        {entry?.source === 'self' && !reducing && !remove && <p className="faint">{t('Сотрудник внёс эту смену сам. Изменение увидит он и останется в истории.')}</p>}
       </div>}
     </ConfirmDialog>
+  );
+}
+
+function CommissionCard({ m, onSaved }: { m: SalesMonth; onSaved: () => void }) {
+  const { t } = useT();
+  const toast = useToast();
+  const [edit, setEdit] = useState<{ employee: SalesEmployee | null } | null>(null);
+  const [rate, setRate] = useState('');
+  const [from, setFrom] = useState(m.today);
+  const [note, setNote] = useState('');
+  const save = useMutation({
+    mutationFn: () => salesCommands.setCommission(m.location.id, edit?.employee?.id ?? null, Math.round(Number(rate.replace(',', '.')) * 100), from, note || null),
+    onSuccess: () => { toast('Процент сохранён. Сотрудник получит уведомление.'); setEdit(null); onSaved(); },
+  });
+  const open = (e: SalesEmployee | null) => { setEdit({ employee: e }); setRate(String((e?.rate_bp ?? m.rate_bp) / 100)); setFrom(m.today); setNote(''); save.reset(); };
+  const sellers = m.employees.filter((e) => e.can_sell);
+  const num = Number(rate.replace(',', '.'));
+  return (
+    <Card title="Процент менеджеров продаж" icon={<Percent size={18} />} iconTone="dark">
+      <p className="faint" style={{ marginTop: 0 }}>{t('Процент считается от выручки за вычетом возвратов. Новый процент действует с выбранной даты; прошлые смены не пересчитываются.')}</p>
+      <ul className="list">
+        <li className="row between" style={{ padding: '8px 0' }}>
+          <span><strong>{t('Вся точка (по умолчанию)')}</strong></span>
+          <span className="row"><strong>{pct(m.rate_bp)}</strong><Button size="sm" onClick={() => open(null)}>{t('Изменить')}</Button></span>
+        </li>
+        {sellers.map((e) => (
+          <li key={e.id} className="row between" style={{ padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+            <span>{e.name}{!e.personal_rate && <span className="faint"> · {t('как у точки')}</span>}</span>
+            <span className="row"><strong>{pct(e.rate_bp)}</strong><Button size="sm" onClick={() => open(e)}>{t('Изменить')}</Button></span>
+          </li>
+        ))}
+      </ul>
+      <ConfirmDialog open={Boolean(edit)} title={edit?.employee ? `${t('Процент')}: ${edit.employee.name}` : t('Процент для всей точки')} confirmLabel="Сохранить"
+        busy={save.isPending} error={save.error} disabled={!(num >= 0 && num <= 100) || rate.trim() === ''} onClose={() => setEdit(null)} onConfirm={() => save.mutate()}>
+        <div className="grid grid-2">
+          <Field label="Процент от выручки" required>{(id) => <Input id={id} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />}</Field>
+          <Field label="Действует с">{(id) => <Input id={id} type="date" value={from} max={addDays(m.today, 60)} onChange={(e) => setFrom(e.target.value)} />}</Field>
+        </div>
+        <Field label="Комментарий" hint="Например: перевыполнение плана">{(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} />}</Field>
+      </ConfirmDialog>
+    </Card>
   );
 }
 
@@ -250,7 +309,7 @@ function LocationReportTab() {
   const [edit, setEdit] = useState<CellEdit | null>(null);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['sales'] }); void qc.invalidateQueries({ queryKey: ['today'] }); };
 
-  if (!manage.isLoading && !read.isLoading && !locs.length) return <Card><EmptyState title="Нет точек" text="Отчёт точки доступен владельцу, управляющему и финансам." /></Card>;
+  if (!manage.isLoading && !read.isLoading && !locs.length) return <Card><EmptyState title="Нет точек" text="Отчёт точки доступен франчайзи, управляющему и компании." /></Card>;
 
   return (
     <div className="stack">
@@ -268,7 +327,12 @@ function LocationReportTab() {
           const missing = new Set(m.missing_days);
           const cell = new Map(m.entries.map((e) => [`${e.day}:${e.employee_id}`, e]));
           const empTotals = new Map<string, bigint>();
-          for (const e of m.entries) empTotals.set(e.employee_id, (empTotals.get(e.employee_id) ?? 0n) + toBigInt(e.revenue_minor) - toBigInt(e.returns_minor));
+          const empEarn = new Map<string, bigint>();
+          for (const e of m.entries) {
+            const n = toBigInt(e.revenue_minor) - toBigInt(e.returns_minor);
+            empTotals.set(e.employee_id, (empTotals.get(e.employee_id) ?? 0n) + n);
+            empEarn.set(e.employee_id, (empEarn.get(e.employee_id) ?? 0n) + earnings(n, e.rate_bp ?? m.rate_bp));
+          }
           const editable = m.can_manage && !m.locked;
           const net = toBigInt(m.totals.revenue_minor) - toBigInt(m.totals.returns_minor);
           const pastMissing = m.missing_days.filter((d) => d < m.today);
@@ -278,13 +342,14 @@ function LocationReportTab() {
               {!m.locked && pastMissing.length > 0 && (
                 <Alert tone="warning" title={`${t('Не заполнено дней')}: ${pastMissing.length}`}>
                   {pastMissing.slice(0, 10).map(dayLabel).join(', ')}{pastMissing.length > 10 ? '…' : ''}.{' '}
-                  {m.can_manage ? t('Нажмите на пустую ячейку, чтобы внести выручку, — тогда месячный отчёт уйдёт полностью заполненным.') : t('Дозаполнить может владелец или управляющий точки.')}
+                  {m.can_manage ? t('Нажмите на пустую ячейку, чтобы внести выручку, — тогда месячный отчёт уйдёт полностью заполненным.') : t('Дозаполнить может франчайзи или управляющий точки.')}
                 </Alert>
               )}
               <div className="money-hero">
                 <MoneyCard dark label="Выручка точки за месяц" icon={<Store size={16} />} value={formatMoneyShort(m.totals.revenue_minor, cur, intlLocale())}
                   sub={m.totals.returns_minor ? `${t('возвраты')} ${formatMoneyShort(m.totals.returns_minor, cur, intlLocale())} · ${t('нетто')} ${formatMoneyShort(net, cur, intlLocale())}` : `${t('услуг')}: ${m.totals.services}`} />
-                <MoneyCard label="Заработок сотрудников" icon={<Percent size={16} />} value={formatMoneyShort(earnings(net, m.rate_bp), cur, intlLocale())} sub={`${t('ставка')} ${pct(m.rate_bp)}`} />
+                <MoneyCard label="Заработок менеджеров продаж" icon={<Percent size={16} />} value={formatMoneyShort(m.totals.earnings_minor, cur, intlLocale())}
+                  sub={m.totals.revenue_minor ? `${t('по карте')} ${Math.round(Number(m.totals.card_minor) * 100 / Number(m.totals.revenue_minor))}% ${t('выручки')}` : `${t('базовый процент')} ${pct(m.rate_bp)}`} />
                 <div className="money-card">
                   <div className="row between"><span className="l">{t('Заполненность')}</span><span className="icon-tile dark" style={{ width: 32, height: 32 }}><CircleAlert size={16} /></span></div>
                   <div className="v">{m.totals.days_with_data} / {m.days_in_period}</div>
@@ -293,7 +358,9 @@ function LocationReportTab() {
               </div>
               <Card title="Выручка по дням" bodyless actions={can('royalty.report.submit') && <LinkButton to="/royalties" size="sm">{t('К месячному отчёту')}</LinkButton>}>
                 <div className="table-wrap"><table className="table sales-grid">
-                  <thead><tr><th>{t('День')}</th>{m.employees.map((e) => <th key={e.id} className="r">{e.name}</th>)}<th className="r">{t('Итого')}</th></tr></thead>
+                  <thead><tr><th>{t('День')}</th>{m.employees.map((e) => (
+                    <th key={e.id} className="r">{e.on_shift_since && <span className="on-shift-dot" title={t('Сейчас на смене')} />}{e.name}<div className="faint" style={{ fontWeight: 400 }}>{pct(e.rate_bp)}</div></th>
+                  ))}<th className="r">{t('Итого')}</th></tr></thead>
                   <tbody>{days.map((d) => {
                     const dayTotal = m.entries.filter((e) => e.day === d).reduce((s, e) => s + toBigInt(e.revenue_minor), 0n);
                     const miss = missing.has(d) && d < m.today;
@@ -307,7 +374,10 @@ function LocationReportTab() {
                             <td key={e.id} className={`${editable ? 'cell' : ''}${x ? '' : ' empty'}`} onClick={editable ? open : undefined}
                               tabIndex={editable ? 0 : undefined} onKeyDown={editable ? (ev) => { if (ev.key === 'Enter') open(); } : undefined}
                               aria-label={editable ? `${e.name}, ${dayLabel(d)}: ${x ? formatMoneyShort(x.revenue_minor, cur, intlLocale()) : t('не внесено')}` : undefined}>
-                              {x ? <>{formatMoneyShort(x.revenue_minor, cur, intlLocale())}{x.source === 'manager' && <span className="faint" title={t('Внёс управляющий')}> ✎</span>}</> : miss ? (editable ? t('+ внести') : '—') : '·'}
+                              {x ? <>{formatMoneyShort(x.revenue_minor, cur, intlLocale())}{x.source === 'manager' && <span className="faint" title={t('Внёс управляющий')}> ✎</span>}
+                                {x.reduced_by_manager && <span className="reduced-mark" title={`${t('Уменьшено')}: ${x.comment ?? ''}`}> ↓</span>}
+                                {(x.files ?? 0) > 0 && <span className="faint" title={t('Фото кассового отчёта')}> <Camera size={12} aria-hidden /></span>}</>
+                                : miss ? (editable ? t('+ внести') : '—') : '·'}
                             </td>
                           );
                         })}
@@ -317,11 +387,12 @@ function LocationReportTab() {
                   })}</tbody>
                   <tfoot>
                     <tr><td>{t('Выручка нетто')}</td>{m.employees.map((e) => <td key={e.id} className="r"><Money minor={empTotals.get(e.id) ?? 0n} currency={cur} short /></td>)}<td className="r"><Money minor={net} currency={cur} short strong /></td></tr>
-                    <tr><td>{t('Заработок')} {pct(m.rate_bp)}</td>{m.employees.map((e) => <td key={e.id} className="r"><strong><Money minor={earnings(empTotals.get(e.id) ?? 0n, m.rate_bp)} currency={cur} short /></strong></td>)}<td /></tr>
+                    <tr><td>{t('Заработок')}</td>{m.employees.map((e) => <td key={e.id} className="r"><strong><Money minor={empEarn.get(e.id) ?? 0n} currency={cur} short /></strong></td>)}<td className="r"><Money minor={m.totals.earnings_minor} currency={cur} short /></td></tr>
                   </tfoot>
                 </table></div>
               </Card>
-              {editable && <p className="faint">{t('✎ — смену внёс управляющий или владелец. Сотрудник видит свой заработок в разделе «Моя смена».')}</p>}
+              {editable && <p className="faint">{t('✎ — смену внёс управляющий или франчайзи; ↓ — сумму уменьшили с причиной; фото — приложен кассовый отчёт.')}</p>}
+              {m.can_manage && <CommissionCard m={m} onSaved={refresh} />}
               <CellDialog edit={edit} m={m} onClose={() => setEdit(null)} onSaved={refresh} />
             </>
           );
@@ -335,12 +406,12 @@ export function SalesPage() {
   const { t } = useT();
   const { can } = useSession();
   const [params, setParams] = useSearchParams();
-  const canMy = can('sales.enter') || can('sales.manage');
+  const canMy = can('sales.enter');
   const canLoc = can('sales.manage') || can('sales.read');
   const tab = (params.get('tab') === 'location' || !canMy) && canLoc ? 'location' : 'my';
   return (
     <>
-      <PageHeader title={t('Выручка')} sub="Ежедневный отчёт смены, процент сотрудника и месячный отчёт точки" />
+      <PageHeader title={t('Выручка')} sub="Смена, процент менеджера продаж и месячный отчёт точки" />
       {canMy && canLoc && (
         <div style={{ marginBottom: 16 }}>
           <Tabs label="Разделы выручки" value={tab} onChange={(v) => setParams(v === 'my' ? {} : { tab: v }, { replace: true })}
@@ -348,7 +419,7 @@ export function SalesPage() {
         </div>
       )}
       {tab === 'my' ? <MyShiftTab /> : <LocationReportTab />}
-      {!canMy && !canLoc && <Card><EmptyState title="Нет доступа" text="Раздел доступен сотрудникам точек, управляющим и владельцам." /></Card>}
+      {!canMy && !canLoc && <Card><EmptyState title="Нет доступа" text="Раздел доступен менеджерам продаж, управляющим и франчайзи." /></Card>}
     </>
   );
 }

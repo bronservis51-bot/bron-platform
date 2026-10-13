@@ -4,7 +4,8 @@ import { createTestDb, type TestDb } from './harness';
 
 let t: TestDb;
 const FM = 'fm@demo.example.com';
-const HEAD = 'head@demo.example.com';
+// Руководителя направления нет (решение владельца 13.10.2026): разрешения, шаблоны и публикацию статей ведёт руководитель компании
+const HEAD = 'founder@demo.example.com';
 const ALPHA = 'alpha.owner@demo.example.com';
 const SUPPLY = 'supply@demo.example.com';
 let seq = 0;
@@ -83,7 +84,7 @@ describe('открытие точки', () => {
     const steps = await t.admin<{ id: string; step_key: string; queue_role: string; requires_evidence: boolean }>(
       `select id, step_key, queue_role, requires_evidence from public.task where subject_id = $1 order by stage_order, step_order`, [project]);
     const who: Record<string, string> = { partner_owner: ALPHA, franchise_manager: FM, finance: 'finance1@demo.example.com',
-      procurement: SUPPLY, warehouse: 'warehouse@demo.example.com', hr_admin: 'hr@demo.example.com',
+      procurement: SUPPLY, warehouse: SUPPLY, founder: HEAD, hr_admin: 'hr@demo.example.com',
       designer: 'designer@demo.example.com', direction_head: HEAD };
     for (const s of steps) {
       if (['opening_permit', 'opening_fact', 'stab_7', 'stab_14', 'stab_30'].includes(s.step_key)) continue;
@@ -382,7 +383,7 @@ describe('база знаний', () => {
 describe('экран «Сегодня» и показатели', () => {
   it('у партнёра, финансиста и сотрудника точки разные блоки', async () => {
     const [p] = await t.as<{ v: Record<string, unknown[]> }>(ALPHA, `select public.today() as v`);
-    const [f] = await t.as<{ v: Record<string, unknown[]> }>('finance2@demo.example.com', `select public.today() as v`);
+    const [f] = await t.as<{ v: Record<string, unknown[]> }>('finance1@demo.example.com', `select public.today() as v`);
     const [s] = await t.as<{ v: Record<string, unknown[]> }>('staff.north@demo.example.com', `select public.today() as v`);
     expect(f.v.approvals.length).toBeGreaterThan(0);
     expect(p.v.approvals).toEqual([]);

@@ -46,14 +46,11 @@ select id, partner_id, coalesce(opened_on, current_date) from public.location;
 -- Назначения применяются триггером при создании пользователя скриптом seed-users (app_metadata.demo_seed = true).
 insert into public.pending_assignment(email, role, scope_type, scope_code) values
   ('founder@demo.example.com', 'founder', 'company', null),
-  ('head@demo.example.com', 'direction_head', 'direction', 'gadgets'),
   ('fm@demo.example.com', 'franchise_manager', 'partner', 'ALPHA'),
   ('fm@demo.example.com', 'franchise_manager', 'partner', 'BETA'),
   ('fm@demo.example.com', 'franchise_manager', 'partner', 'GAMMA'),
   ('finance1@demo.example.com', 'finance', 'company', null),
-  ('finance2@demo.example.com', 'finance', 'company', null),
   ('supply@demo.example.com', 'procurement', 'company', null),
-  ('warehouse@demo.example.com', 'warehouse', 'company', null),
   ('tech@demo.example.com', 'support_specialist', 'company', null),
   ('designer@demo.example.com', 'designer', 'company', null),
   ('hr@demo.example.com', 'hr_admin', 'company', null),
@@ -86,10 +83,10 @@ select id, 1, 'published', now(), 'Базовый шаблон по раздел
   ],
   "steps": [
     {"key": "partner_details", "stage": "contract", "title": "Передать реквизиты юрлица и контакты", "queue_role": "partner_owner", "backup_role": "franchise_manager", "due": {"anchor": "start", "offset_days": 3}},
-    {"key": "contract_signed", "stage": "contract", "title": "Прикрепить подписанный договор", "description": "Скан договора со всеми приложениями", "queue_role": "franchise_manager", "backup_role": "direction_head", "critical": true, "requires_evidence": true, "depends_on": ["partner_details"], "due": {"anchor": "start", "offset_days": 10}},
+    {"key": "contract_signed", "stage": "contract", "title": "Прикрепить подписанный договор", "description": "Скан договора со всеми приложениями", "queue_role": "franchise_manager", "backup_role": "founder", "critical": true, "requires_evidence": true, "depends_on": ["partner_details"], "due": {"anchor": "start", "offset_days": 10}},
     {"key": "contract_payment", "stage": "contract", "title": "Подтвердить платежи, предусмотренные договором", "description": "По выписке, не по скриншоту", "queue_role": "finance", "critical": true, "depends_on": ["contract_signed"], "due": {"anchor": "start", "offset_days": 14}},
     {"key": "location_photos", "stage": "location", "title": "Загрузить фото, план и размеры места", "queue_role": "partner_owner", "backup_role": "franchise_manager", "requires_evidence": true, "due": {"anchor": "start", "offset_days": 7}},
-    {"key": "location_approved", "stage": "location", "title": "Согласовать место: электричество, связь, доступ", "queue_role": "franchise_manager", "backup_role": "direction_head", "critical": true, "depends_on": ["location_photos"], "due": {"anchor": "planned_open", "offset_days": -30}},
+    {"key": "location_approved", "stage": "location", "title": "Согласовать место: электричество, связь, доступ", "queue_role": "franchise_manager", "backup_role": "founder", "critical": true, "depends_on": ["location_photos"], "due": {"anchor": "planned_open", "offset_days": -30}},
     {"key": "kit_order", "stage": "equipment", "title": "Сформировать заказ стартового комплекта", "queue_role": "procurement", "critical": true, "depends_on": ["contract_payment"], "due": {"anchor": "planned_open", "offset_days": -25}},
     {"key": "kit_shipped", "stage": "equipment", "title": "Отгрузить комплект и передать трек", "queue_role": "warehouse", "backup_role": "procurement", "critical": true, "depends_on": ["kit_order"], "due": {"anchor": "planned_open", "offset_days": -14}},
     {"key": "kit_received", "stage": "equipment", "title": "Принять комплект и проверить комплектность", "queue_role": "partner_owner", "backup_role": "franchise_manager", "critical": true, "requires_evidence": true, "depends_on": ["kit_shipped"], "due": {"anchor": "planned_open", "offset_days": -7}},
@@ -98,7 +95,7 @@ select id, 1, 'published', now(), 'Базовый шаблон по раздел
     {"key": "patterns", "stage": "systems", "title": "Настроить лекала и плоттер", "queue_role": "designer", "backup_role": "support_specialist", "depends_on": ["kit_shipped"], "due": {"anchor": "planned_open", "offset_days": -7}},
     {"key": "reporting_setup", "stage": "systems", "title": "Проверить настройку отчётности о выручке", "queue_role": "finance", "depends_on": ["contract_signed"], "kb_article": "reglament-otcheta", "due": {"anchor": "planned_open", "offset_days": -7}},
     {"key": "readiness_checklist", "stage": "readiness", "title": "Чек-лист готовности с фото точки", "queue_role": "partner_owner", "backup_role": "franchise_manager", "critical": true, "requires_evidence": true, "depends_on": ["kit_received", "training", "patterns", "location_approved"], "due": {"anchor": "planned_open", "offset_days": -2}},
-    {"key": "opening_permit", "stage": "readiness", "title": "Выдать разрешение на открытие", "queue_role": "direction_head", "gate": true, "depends_on": ["readiness_checklist"], "due": {"anchor": "planned_open", "offset_days": -1}},
+    {"key": "opening_permit", "stage": "readiness", "title": "Выдать разрешение на открытие", "queue_role": "founder", "gate": true, "depends_on": ["readiness_checklist"], "due": {"anchor": "planned_open", "offset_days": -1}},
     {"key": "opening_fact", "kind": "opening_fact", "stage": "opening", "title": "Зафиксировать открытие и первую продажу", "queue_role": "franchise_manager", "depends_on": ["opening_permit"], "due": {"anchor": "planned_open", "offset_days": 0}},
     {"key": "stab_7", "stage": "stabilization", "title": "Контроль через 7 дней: продажи, расходники, проблемы", "queue_role": "franchise_manager", "depends_on": ["opening_fact"], "due": {"anchor": "actual_open", "offset_days": 7}},
     {"key": "stab_14", "stage": "stabilization", "title": "Контроль через 14 дней: качество работы и знания", "queue_role": "franchise_manager", "depends_on": ["stab_7"], "due": {"anchor": "actual_open", "offset_days": 14}},
@@ -113,13 +110,13 @@ insert into public.support_routing(category, title, queue_role, backup_role, cal
 select v.category, v.title, v.queue_role, v.backup_role, c.id, v.req::text[], v.hint
 from (values
   ('film_delivery', 'Плёнка и доставка', 'procurement', 'franchise_manager', '{}', 'zakaz-plenok'),
-  ('equipment', 'Оборудование', 'support_specialist', 'direction_head', '{equipment_model}', 'lekala-oborudovanie'),
+  ('equipment', 'Оборудование', 'support_specialist', 'founder', '{equipment_model}', 'lekala-oborudovanie'),
   ('software_patterns', 'ПО и лекала', 'designer', 'support_specialist', '{equipment_model}', 'lekala-oborudovanie'),
   ('quality_warranty', 'Качество и гарантия', 'support_specialist', 'franchise_manager', '{}', 'garantii'),
   ('reporting_royalty', 'Отчётность и роялти', 'finance', 'franchise_manager', '{}', 'uchet-royalti'),
-  ('marketing', 'Маркетинг', 'franchise_manager', 'direction_head', '{}', 'marketing'),
+  ('marketing', 'Маркетинг', 'franchise_manager', 'founder', '{}', 'marketing'),
   ('training', 'Обучение', 'franchise_manager', 'hr_admin', '{}', 'hr-obuchenie'),
-  ('other', 'Другое', 'franchise_manager', 'direction_head', '{}', null)
+  ('other', 'Другое', 'franchise_manager', 'founder', '{}', null)
 ) as v(category, title, queue_role, backup_role, req, hint)
 cross join public.business_calendar c where c.code = 'support-msk';
 

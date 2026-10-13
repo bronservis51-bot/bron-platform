@@ -58,7 +58,7 @@ describe('чтение для всех ролей', () => {
     expect((await t.as('sysadmin@demo.example.com', `select * from public.admin_users()`)).length).toBe(DEMO_USERS.length);
     expect((await t.as('founder@demo.example.com', `select * from public.queue_health()`)).length).toBeGreaterThan(0);
     await t.expectError('alpha.owner@demo.example.com', `select * from public.admin_users()`, 'forbidden');
-    const [m] = await t.as<{ m: { items: unknown[] } }>('head@demo.example.com', `select public.metrics_overview() as m`);
+    const [m] = await t.as<{ m: { items: unknown[] } }>('fm@demo.example.com', `select public.metrics_overview() as m`);
     expect(m.m.items.length).toBeGreaterThan(8);
   });
 

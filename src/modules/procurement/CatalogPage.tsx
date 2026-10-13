@@ -3,17 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Heart, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
+import { Bell, BellRing, Heart, Minus, Plus, ShoppingCart, Sparkles, Trash2, X } from 'lucide-react';
 import { useSession } from '../../platform/session';
 import { newOperationKey, toAppError } from '../../platform/backend';
 import { dueInfo } from '../../platform/dates';
-import { useT } from '../../platform/i18n';
+import { intlLocale, useT } from '../../platform/i18n';
 import { sumMinor, toBigInt } from '../../platform/money';
 import { ActionError, Alert, Button, Card, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, Money, NoResults, PageHeader, Select, Textarea } from '../../ui';
 import { UNIT } from '../../ui/status';
 import { useToast } from '../../ui/toast';
 import { useLocationsWith } from '../shared/lookups';
-import { cartLines, cartOpen, catalog, orderCommands, type CatalogItem, type OrderLine } from './api';
+import { cartLines, cartOpen, catalog, orderCommands, stockSubscribe, type CatalogItem, type OrderLine } from './api';
 import { ProductMockup } from './Mockup';
 
 function decimals(n: string | number) {
@@ -52,7 +52,7 @@ function useFavorites(userId: string | undefined) {
   return { fav, toggle };
 }
 
-function ProductCard({ it, inCart, onSet, busy, fav, onFav }: { it: CatalogItem; inCart: number; onSet: (q: number) => void; busy: boolean; fav: boolean; onFav: () => void }) {
+function ProductCard({ it, inCart, onSet, busy, fav, onFav, onSubscribe }: { it: CatalogItem; inCart: number; onSet: (q: number) => void; busy: boolean; fav: boolean; onFav: () => void; onSubscribe: (on: boolean) => void }) {
   const { t } = useT();
   const step = Number(it.pack_multiple);
   const min = Number(it.min_qty);
@@ -62,6 +62,7 @@ function ProductCard({ it, inCart, onSet, busy, fav, onFav }: { it: CatalogItem;
     <article className="product-card">
       <div className="product-media">
         <ProductMockup visual={it.visual} seed={it.sku} />
+        {(it.is_new || it.arrived_at) && <span className={`product-flag${it.arrived_at ? ' arrived' : ''}`}>{it.arrived_at ? t('Поступило') : t('Новинка')}</span>}
         <button type="button" className="fav-btn" aria-pressed={fav} aria-label={fav ? `Убрать из избранного: ${it.name}` : `В избранное: ${it.name}`} onClick={onFav}>
           <Heart size={18} fill={fav ? 'currentColor' : 'none'} aria-hidden />
         </button>
@@ -71,14 +72,21 @@ function ProductCard({ it, inCart, onSet, busy, fav, onFav }: { it: CatalogItem;
       {it.subtitle && <div className="product-sub">{t(it.subtitle)}</div>}
       <div className="product-price"><Money minor={it.price_minor} currency={it.currency} short />{it.unit !== 'sheet' && <span className="faint" style={{ fontWeight: 400 }}> / {t(UNIT[it.unit] ?? it.unit)}</span>}</div>
       <div className="product-stock" title={age ? `${it.stock_source === 'demo' ? t('демо-проекция,') + ' ' : ''}${t('обновлено {{age}} назад', { age })}` : undefined}>
-        {avail === null ? t('Остаток неизвестен') : avail <= 0 ? <span style={{ color: 'var(--danger)' }}>{t('Под заказ')}{it.lead_time_days ? ` · ~${it.lead_time_days} ${t('дн.')}` : ''}</span>
+        {avail === null ? t('Остаток неизвестен') : avail <= 0 ? <span style={{ color: 'var(--danger)' }}>{it.incoming_on
+            ? `${t('Нет в наличии · ожидается')} ${new Date(`${it.incoming_on}T12:00:00Z`).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' })}`
+            : `${t('Нет в наличии')}${it.lead_time_days ? ` · ~${it.lead_time_days} ${t('дн.')}` : ''}`}</span>
           : avail < 20 ? <span style={{ color: 'var(--warning)' }}>{t('Осталось ~{{n}}', { n: fmtQty(avail) })}</span> : t('В наличии')}
       </div>
       <div className="product-cta">
         {inCart > 0
           ? <QtyInput value={inCart} step={step} min={min} onChange={onSet} label={`Количество: ${it.name}`} />
-          : <button type="button" className="btn-outline-pill" disabled={busy} onClick={() => onSet(Math.max(min, step))}>{busy ? t('Добавляем…') : t('Добавить в корзину')}</button>}
+          : <button type="button" className="btn-outline-pill" disabled={busy} onClick={() => onSet(Math.max(min, step))}>{busy ? t('Добавляем…') : avail !== null && avail <= 0 ? t('Заказать заранее') : t('Добавить в корзину')}</button>}
       </div>
+      {avail !== null && avail <= 0 && (
+        <button type="button" className={`notify-btn${it.subscribed ? ' on' : ''}`} aria-pressed={it.subscribed} onClick={() => onSubscribe(!it.subscribed)}>
+          {it.subscribed ? <><BellRing size={14} aria-hidden /> {t('Сообщим о поступлении')}</> : <><Bell size={14} aria-hidden /> {t('Сообщить о поступлении')}</>}
+        </button>
+      )}
       {(step !== 1 || min > 1) && <div className="faint" style={{ fontSize: 'var(--fs-xs)', marginTop: 6 }}>{t('Кратность')} {fmtQty(step)} · {t('минимум')} {fmtQty(min)}</div>}
     </article>
   );
@@ -153,6 +161,10 @@ export function CatalogPage() {
     mutationFn: async ({ item, qty }: { item: string; qty: number }) => { setBusyItem(item); await orderCommands.setLine(cart.data!.id, item, qty); },
     onSettled: () => { setBusyItem(null); void qc.invalidateQueries({ queryKey: ['cart', location] }); },
   });
+  const subscribe = useMutation({
+    mutationFn: ({ item, on }: { item: string; on: boolean }) => stockSubscribe(item, on),
+    onSuccess: (on) => { toast(on ? 'Сообщим, как только товар поступит на склад' : 'Подписка отменена'); void qc.invalidateQueries({ queryKey: ['catalog', location] }); },
+  });
   const submit = useMutation({
     mutationFn: async () => {
       await orderCommands.update(cart.data!.id, address, contact, comment);
@@ -184,7 +196,7 @@ export function CatalogPage() {
   const categories = useMemo(() => [...new Set(all.map((i) => i.category))], [all]);
   const q = search.trim().toLowerCase();
   const filtered = all
-    .filter((i) => category === '♥' ? fav.has(i.sku) : !category || i.category === category)
+    .filter((i) => category === '♥' ? fav.has(i.sku) : category === '★' ? i.is_new || Boolean(i.arrived_at) : !category || i.category === category)
     .filter((i) => !q || `${i.name} ${i.sku} ${i.article_no ?? ''} ${i.category} ${i.subtitle ?? ''}`.toLowerCase().includes(q))
     .sort((a, b) => sort === 'cheap' ? Number(toBigInt(a.price_minor) - toBigInt(b.price_minor))
       : sort === 'expensive' ? Number(toBigInt(b.price_minor) - toBigInt(a.price_minor))
@@ -208,8 +220,18 @@ export function CatalogPage() {
         )}</Field>} />
       {params.get('order') && cart.data && params.get('order') !== cart.data.id && <div style={{ marginBottom: 16 }}><Alert tone="info">Открыта корзина выбранной точки.</Alert></div>}
 
+      {(() => {
+        const fresh = all.filter((i) => i.arrived_at || i.is_new);
+        return fresh.length > 0 && category !== '★' ? (
+          <button type="button" className="shop-news" onClick={() => setCategory('★')}>
+            <Sparkles size={18} aria-hidden />
+            <span><strong>{t('Новое в магазине')}:</strong> {fresh.slice(0, 4).map((i) => i.name).join(', ')}{fresh.length > 4 ? '…' : ''}</span>
+          </button>
+        ) : null;
+      })()}
       <nav className="shop-cats" aria-label={t('Категории')}>
         <button type="button" aria-pressed={!category} onClick={() => setCategory('')}>{t('Все')}</button>
+        {all.some((i) => i.is_new || i.arrived_at) && <button type="button" aria-pressed={category === '★'} onClick={() => setCategory('★')}><Sparkles size={15} aria-hidden style={{ verticalAlign: '-2px' }} /> {t('Новинки и поступления')}</button>}
         {categories.map((c) => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)}>{t(c)}</button>)}
         <button type="button" aria-pressed={category === '♥'} onClick={() => setCategory('♥')}><Heart size={15} aria-hidden style={{ verticalAlign: '-2px' }} /> {t('Избранное')}{fav.size ? ` (${fav.size})` : ''}</button>
       </nav>
@@ -238,6 +260,7 @@ export function CatalogPage() {
             {filtered.map((it) => {
               const inCart = Number(lines.data?.find((l) => l.item_id === it.item_id)?.qty_ordered ?? 0);
               return <ProductCard key={it.item_id} it={it} inCart={inCart} busy={busyItem === it.item_id} fav={fav.has(it.sku)} onFav={() => toggle(it.sku)}
+                onSubscribe={(on) => subscribe.mutate({ item: it.item_id, on })}
                 onSet={(qty) => setLine.mutate({ item: it.item_id, qty })} />;
             })}
           </div>

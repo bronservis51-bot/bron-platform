@@ -2,7 +2,8 @@ import { command, from, rows, single } from '../../platform/backend';
 
 export interface CatalogItem {
   item_id: string; sku: string; article_no: number | null; name: string; category: string; subtitle: string | null; description: string | null;
-  visual: { kind?: string; colors?: string[]; tool?: string } | null; image_url: string | null; unit: string; pack_multiple: string; min_qty: string;
+  visual: { kind?: string; colors?: string[]; tool?: string } | null; image_url: string | null;
+  incoming_on: string | null; incoming_qty: string | null; is_new: boolean; arrived_at: string | null; subscribed: boolean; unit: string; pack_multiple: string; min_qty: string;
   lead_time_days: number | null; price_minor: string; currency: string; available_qty: string | null; stock_source: string | null; stock_refreshed_at: string | null;
 }
 export interface Order {
@@ -14,6 +15,20 @@ export interface OrderLine { id: string; item_id: string; sku: string; name: str
 export interface Shipment { id: string; external_ref: string; carrier: string | null; tracking: string | null; eta_from: string | null; eta_to: string | null; promised_on: string | null; status: string; created_at: string; shipment_line: { line_id: string; qty: string }[] }
 
 export const catalog = (location: string) => command<CatalogItem[]>('catalog_for_location', { location });
+export const stockSubscribe = (item: string, on: boolean) => command<boolean>('stock_subscribe', { item, on });
+
+export interface BoardItem {
+  id: string; sku: string; article_no: number | null; name: string; category: string; subtitle: string | null; unit: string; visual: { kind?: string } | null;
+  published_at: string | null; available_qty: number; waiting: number; backlog_qty: number; last_arrival: string | null;
+  incoming: { id: string; qty: number; expected_on: string; note: string | null }[];
+}
+export const stockBoard = () => command<BoardItem[]>('stock_board');
+export const supplyCommands = {
+  plan: (item: string, qty: number, expected_on: string, note: string | null) => command('stock_incoming_plan', { item, qty, expected_on, note }),
+  arrive: (incoming: string, qty: number | null) => command('stock_incoming_arrive', { incoming, qty }),
+  cancel: (incoming: string, reason: string) => command('stock_incoming_cancel', { incoming, reason }),
+  announce: (item: string, message: string | null) => command('catalog_item_announce', { item, message }),
+};
 export const cartOpen = (location: string) => command<Order>('cart_open', { location });
 export const cartLines = (order: string) => rows<OrderLine>(from('order_line').select('*').eq('order_id', order).order('name'));
 

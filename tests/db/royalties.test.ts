@@ -5,7 +5,8 @@ import { createTestDb, type TestDb } from './harness';
 let t: TestDb;
 const PARTNER = 'alpha.owner@demo.example.com';
 const F1 = 'finance1@demo.example.com';
-const F2 = 'finance2@demo.example.com';
+// Второй подписью (публикация начисления, подтверждение зачисления) служит руководитель компании: финансист один
+const F2 = 'founder@demo.example.com';
 let contract: string;
 let alpha: string;
 let loc1: string;
@@ -254,9 +255,10 @@ describe('напоминание о сдаче отчёта', () => {
     await t.as('supply@demo.example.com', `select public.run_integration_jobs()`);
     const [{ p }] = await t.admin<{ p: string }>(`select to_char(date_trunc('month', now()) - interval '1 month', 'YYYY-MM-DD') as p`);
     const key = `report_due:${betaContract}:${p}`;
-    expect((await t.admin<{ status: string }>(`select status from public.task where dedupe_key = $1`, [key]))[0].status).toBe('ready');
-    const [r] = await t.as<{ id: string }>(beta, `select id from public.report_save_draft($1, $2::date, $3::jsonb)`, [betaContract, p, JSON.stringify([{ location_id: betaLoc, gross_minor: 100000 }])]);
-    await t.as(beta, `select public.report_submit($1, 'beta-reminder-close-1')`, [r.id]);
+    // Демо-данные v3: Бета уже отправила отчёт за прошлый месяц — напоминание должно быть закрыто им, а не висеть
+    const [rep] = await t.admin<{ status: string }>(`select status from public.revenue_report where contract_id = $1 and period = $2::date`, [betaContract, p]);
+    expect(rep.status).toBe('submitted');
+    void beta; void betaLoc;
     expect((await t.admin<{ status: string }>(`select status from public.task where dedupe_key = $1`, [key]))[0].status).toBe('done');
   });
 });

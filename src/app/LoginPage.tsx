@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
-import { Building2, ChevronRight, Store, Users, Crown, Landmark, Package, Headset, PenTool, BookOpen, ShieldCheck, Wrench, Truck, UserCog, Rocket, UserRound } from 'lucide-react';
+import { Building2, ChevronRight, Store, Users, Crown, Landmark, Package, Headset, PenTool, BookOpen, ShieldCheck, Wrench, UserCog, Rocket, UserRound } from 'lucide-react';
 import { BrandPattern, LogoFull, LogoMark } from '../ui/brand';
 import { useSession } from '../platform/session';
 import { config, quickLoginEnabled } from '../platform/config';
@@ -10,9 +10,8 @@ import demoUsers from '../../supabase/seed/demo-users.json';
 interface DemoUser { email: string; name: string; group: 'company' | 'own' | 'partner'; title: string; scope: string; hint: string }
 
 const ROLE_ICON: Record<string, typeof Building2> = {
-  'founder@demo.example.com': Crown, 'head@demo.example.com': ShieldCheck, 'fm@demo.example.com': Rocket,
-  'finance1@demo.example.com': Landmark, 'finance2@demo.example.com': Landmark, 'supply@demo.example.com': Package,
-  'warehouse@demo.example.com': Truck, 'tech@demo.example.com': Wrench, 'designer@demo.example.com': PenTool,
+  'founder@demo.example.com': Crown, 'fm@demo.example.com': Rocket,
+  'finance1@demo.example.com': Landmark, 'supply@demo.example.com': Package, 'tech@demo.example.com': Wrench, 'designer@demo.example.com': PenTool,
   'hr@demo.example.com': UserCog, 'editor@demo.example.com': BookOpen, 'sysadmin@demo.example.com': ShieldCheck,
   'manager.north@demo.example.com': Store, 'staff.north@demo.example.com': UserRound, 'alpha.staff@demo.example.com': UserRound,
 };
@@ -20,7 +19,7 @@ const ROLE_ICON: Record<string, typeof Building2> = {
 const GROUPS: { id: DemoUser['group']; title: string; icon: typeof Building2 }[] = [
   { id: 'company', title: 'Сотрудники компании', icon: Building2 },
   { id: 'own', title: 'Собственная точка', icon: Store },
-  { id: 'partner', title: 'Партнёры франшизы', icon: Users },
+  { id: 'partner', title: 'Франчайзи и менеджеры продаж', icon: Users },
 ];
 
 /** Быстрый вход по ролям для демонстрации: выбор карточки вместо логина и пароля. */
@@ -28,21 +27,34 @@ function QuickLogin({ onError }: { onError: (msg: string) => void }) {
   const { signIn } = useSession();
   const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
+  const [slow, setSlow] = useState(false);
   async function enter(u: DemoUser) {
     setBusy(u.email);
+    setSlow(false);
+    const hint = setTimeout(() => setSlow(true), 5000);
     try {
-      await signIn(u.email, config.demoQuickPassword, false);
+      // Сервер не ответил за 40 с — показать понятную причину вместо вечной загрузки
+      await Promise.race([
+        signIn(u.email, config.demoQuickPassword, false),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 40000)),
+      ]);
       navigate('/', { replace: true });
-    } catch {
-      onError(!navigator.onLine ? 'Нет сети. Вход возможен только онлайн.' : 'Не удалось войти под этой ролью. Попробуйте ещё раз или обратитесь к администратору стенда.');
+    } catch (e) {
+      onError(!navigator.onLine ? 'Нет сети. Вход возможен только онлайн.'
+        : (e as Error).message === 'timeout' || (e as Error).message?.includes('fetch')
+          ? 'Сервер демо-стенда не отвечает. Он находится за рубежом, и у некоторых операторов связи работает с перебоями: попробуйте другую сеть (Wi‑Fi или мобильный интернет) или включите VPN.'
+          : 'Не удалось войти под этой ролью. Попробуйте ещё раз или обратитесь к администратору стенда.');
     } finally {
+      clearTimeout(hint);
       setBusy(null);
+      setSlow(false);
     }
   }
   return (
     <div>
       <h2 style={{ fontSize: 'var(--fs-l)', marginBottom: 4 }}>Выберите роль</h2>
       <p className="muted" style={{ marginBottom: 16 }}>Войдите под нужной должностью, чтобы увидеть систему её глазами. Сменить роль можно в меню справа вверху.</p>
+      {busy && slow && <div className="slow-hint" role="status">Соединяемся с сервером… Демо-стенд размещён за рубежом, первый вход может занять до 20 секунд.</div>}
       {GROUPS.map((g) => (
         <section key={g.id} style={{ marginBottom: 20 }}>
           <div className="row" style={{ marginBottom: 8, color: 'var(--text-2)', fontWeight: 600 }}><g.icon size={16} aria-hidden />{g.title}</div>
