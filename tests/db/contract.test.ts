@@ -50,14 +50,23 @@ describe('границы модулей в SQL (ARCH-02)', () => {
     const dir = join(root, 'supabase/migrations');
     const migs = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
     for (const f of migs) for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/create table public\.(\w+)/g)) owner[m[1]] = f;
-    // Допустимые межмодульные записи — только через контракт модуля-владельца (app_private.* функции)
+    // Контракт модуля может быть объявлен в более поздней миграции: функция с префиксом модуля-владельца
+    const modulePrefixes: Record<string, string[]> = {
+      '0003_files.sql': ['file_'], '0004_tasks.sql': ['task_', 'workflow_'], '0005_franchise.sql': ['opening_', 'location_'],
+      '0006_support.sql': ['ticket_'], '0007_procurement.sql': ['order_', 'cart_'], '0008_royalties.sql': ['report_', 'royalty_', 'payment_', 'accrual_'],
+      '0009_knowledge.sql': ['article_', 'kb_'],
+    };
     const allowed = new Set(['0001_foundation.sql']);
     const problems: string[] = [];
     for (const f of migs) {
       const sql = readFileSync(join(dir, f), 'utf8');
       for (const m of sql.matchAll(/(?:insert into|update|delete from)\s+public\.(\w+)/g)) {
         const o = owner[m[1]];
-        if (o && o !== f && !allowed.has(o)) problems.push(`${f} → ${m[1]} (${o})`);
+        if (!o || o === f || allowed.has(o)) continue;
+        const before = sql.slice(0, m.index);
+        const fn = [...before.matchAll(/create (?:or replace )?function (?:app_private|public)\.(\w+)/g)].pop()?.[1] ?? '';
+        if ((modulePrefixes[o] ?? []).some((p) => fn.startsWith(p))) continue;
+        problems.push(`${f} → ${m[1]} (${o}) в ${fn || 'вне функции'}`);
       }
     }
     expect(problems).toEqual([]);

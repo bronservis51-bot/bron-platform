@@ -245,3 +245,18 @@ describe('демо-история из seed', () => {
     expect(rows).toHaveLength(1);
   });
 });
+
+describe('напоминание о сдаче отчёта', () => {
+  it('закрывается само, когда партнёр отправляет отчёт за этот период', async () => {
+    const beta = 'beta.owner@demo.example.com';
+    const [{ id: betaContract }] = await t.admin<{ id: string }>(`select k.id from public.contract k join public.partner p on p.id = k.partner_id where p.code = 'BETA'`);
+    const [{ id: betaLoc }] = await t.admin<{ id: string }>(`select id from public.location where code = 'BETA-1'`);
+    await t.as('supply@demo.example.com', `select public.run_integration_jobs()`);
+    const [{ p }] = await t.admin<{ p: string }>(`select to_char(date_trunc('month', now()) - interval '1 month', 'YYYY-MM-DD') as p`);
+    const key = `report_due:${betaContract}:${p}`;
+    expect((await t.admin<{ status: string }>(`select status from public.task where dedupe_key = $1`, [key]))[0].status).toBe('ready');
+    const [r] = await t.as<{ id: string }>(beta, `select id from public.report_save_draft($1, $2::date, $3::jsonb)`, [betaContract, p, JSON.stringify([{ location_id: betaLoc, gross_minor: 100000 }])]);
+    await t.as(beta, `select public.report_submit($1, 'beta-reminder-close-1')`, [r.id]);
+    expect((await t.admin<{ status: string }>(`select status from public.task where dedupe_key = $1`, [key]))[0].status).toBe('done');
+  });
+});
