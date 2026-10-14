@@ -22,7 +22,7 @@ import { Badge, Card, Chips, DataState, PageHeader, Progress } from '../../ui';
 interface MapLocation {
   id: string; code: string; name: string; kind: 'own' | 'franchise'; status: string; city: string; country: string; address: string | null; currency: string;
   opened_on: string | null; lat: number | null; lng: number | null; partner_id: string | null; partner_name: string | null; today: string;
-  revenue_minor: number; days_with_data: number; prev_revenue_minor: number; today_revenue_minor: number; days_passed: number; missing_days: number;
+  revenue_minor: number; revenue_rub_minor: number; days_with_data: number; prev_revenue_minor: number; today_revenue_minor: number; days_passed: number; missing_days: number;
   on_shift: { name: string; since: string }[]; open_tickets: number; stopped_tickets: number;
   opening: { id: string; planned_open_on: string; status: string; done: number; total: number } | null;
   debt: { outstanding_minor: number; overdue_minor: number; currency: string | null } | null;
@@ -213,8 +213,7 @@ export function NetworkMapPage() {
           const list = all.filter((l) => filter === 'all' || (filter === 'attention' ? attention(l).length > 0 : l.kind === filter));
           const sel = all.find((l) => l.id === selected) ?? null;
           const countries = new Set(all.map((l) => l.country)).size;
-          const byCur = new Map<string, number>();
-          for (const l of all) byCur.set(l.currency, (byCur.get(l.currency) ?? 0) + Math.round(Number(l.revenue_minor) / 100) * 100);
+          const rub = all.reduce((a, l) => a + Number(l.revenue_rub_minor ?? 0), 0);
           return (
             <div className="stack">
               <div className="map-summary">
@@ -223,7 +222,7 @@ export function NetworkMapPage() {
                 <div><span className="v">{all.filter((l) => l.kind === 'franchise').length}</span><span className="l">{t('франшиз')}</span></div>
                 <div><span className="v">{all.filter((l) => l.status === 'opening').length}</span><span className="l">{t('открываются')}</span></div>
                 <div className="alert"><span className="v">{all.filter((l) => attention(l).length > 0).length}</span><span className="l">{t('требуют внимания')}</span></div>
-                <div className="wide"><span className="v sm">{[...byCur].map(([c, v]) => formatMoneyShort(v, c, intlLocale())).join(' · ')}</span><span className="l">{t('выручка сети за месяц')}</span></div>
+                <div className="wide"><span className="v">{formatMoneyShort(Math.round(rub / 100) * 100, 'RUB', intlLocale())}</span><span className="l">{t('выручка сети за месяц, в рублях')}</span></div>
               </div>
               <Chips label="Фильтр точек" value={filter} onChange={setFilter} options={[
                 { id: 'all', label: 'Все' }, { id: 'own', label: 'Собственные' }, { id: 'franchise', label: 'Франшизы' }, { id: 'attention', label: 'Требуют внимания' }]} />

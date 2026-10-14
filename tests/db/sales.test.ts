@@ -236,3 +236,21 @@ describe('нерабочие дни', () => {
     expect(s.v.points).toEqual([]);
   });
 });
+
+describe('рубли по курсу дня смены', () => {
+  it('смена в тенге получает рублёвую сумму по курсу своего дня; курс потом не меняется', async () => {
+    const [{ id: beta }] = await t.admin<{ id: string }>(`select id from public.location where code = 'BETA-1'`);
+    const [s] = await t.as<{ id: string; fx_rate: string; rub_minor: string; revenue_minor: string }>('beta.owner@demo.example.com', save, [beta, today, null, 10_000_000, 0, 3, null, null]);
+    const [r] = await t.admin<{ rate: string }>(`select rate from public.fx_rate where currency = 'KZT' and day = $1::date`, [today]);
+    expect(Number(s.fx_rate)).toBeCloseTo(Number(r.rate), 6);
+    expect(Number(s.rub_minor)).toBe(Math.round(10_000_000 * Number(r.rate)));
+    await t.as('finance1@demo.example.com', `select public.fx_rate_set('KZT', $1::date, 9.99)`, [today]);
+    const [again] = await t.admin<{ fx_rate: string }>(`select fx_rate from public.daily_sale where id = $1`, [s.id]);
+    expect(Number(again.fx_rate)).toBeCloseTo(Number(r.rate), 6);
+    await t.expectError('beta.owner@demo.example.com', `select public.fx_rate_set('KZT', current_date, 1)`, 'forbidden');
+    const [n] = await t.as<{ v: { locations: { code: string; revenue_rub_minor: number; revenue_minor: number; currency: string }[] } }>('founder@demo.example.com', `select public.network_sales(current_date) as v`);
+    const own = n.v.locations.find((l) => l.currency === 'RUB')!;
+    expect(Number(own.revenue_rub_minor)).toBe(Number(own.revenue_minor));
+    expect(Number(n.v.locations.find((l) => l.code === 'BETA-1')!.revenue_rub_minor)).toBeGreaterThan(0);
+  });
+});

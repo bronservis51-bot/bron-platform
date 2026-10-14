@@ -124,8 +124,9 @@ describe('обязательные инструкции только тем, к�
   it('стандарт оклейки — сотрудникам точек и франчайзи; регламент отчёта — франчайзи; офису — ничего', async () => {
     const acks = async (email: string) => (await t.as<{ v: { acks: { title: string }[] } }>(email, `select public.today() as v`))[0].v.acks.map((a) => a.title);
     for (const office of ['founder@demo.example.com', 'finance1@demo.example.com', 'supply@demo.example.com', 'fm@demo.example.com']) expect(await acks(office)).toEqual([]);
-    expect(await acks('staff.north@demo.example.com')).toEqual(['Стандарт оклейки смартфона']);
-    expect(await acks('alpha.staff@demo.example.com')).toEqual(['Стандарт оклейки смартфона']);
+    // менеджерам продаж — ещё их должностная инструкция
+    expect((await acks('staff.north@demo.example.com')).sort()).toEqual(['Менеджер продаж', 'Стандарт оклейки смартфона']);
+    expect((await acks('alpha.staff@demo.example.com')).sort()).toEqual(['Менеджер продаж', 'Стандарт оклейки смартфона']);
     expect((await acks('beta.owner@demo.example.com')).sort()).toEqual(['Регламент сдачи отчёта о выручке', 'Стандарт оклейки смартфона']);
   });
 
@@ -138,5 +139,24 @@ describe('обязательные инструкции только тем, к�
     expect(a1.daily.length).toBeGreaterThan(0);
     expect(new Set(r.v.locations.map((l) => l.kind))).toEqual(new Set(['own', 'franchise']));
     await t.expectError('alpha.owner@demo.example.com', `select public.network_sales(current_date)`, 'forbidden');
+  });
+});
+
+describe('должностные инструкции', () => {
+  it('инструкция привязана к роли: менеджер продаж видит её в «Моей должности» и получает ознакомление; офис — нет', async () => {
+    const [m] = await t.as<{ v: { code: string; docs: { title: string; acknowledged: boolean }[] }[] }>('alpha.staff@demo.example.com', `select public.my_role() as v`);
+    expect(m.v.find((r) => r.code === 'partner_staff')!.docs.map((d) => d.title)).toEqual(['Менеджер продаж']);
+    const [td] = await t.as<{ v: { acks: { title: string }[] } }>('alpha.staff@demo.example.com', `select public.today() as v`);
+    expect(td.v.acks.map((a) => a.title)).toContain('Менеджер продаж');
+    const [f] = await t.as<{ v: { acks: unknown[] } }>('finance1@demo.example.com', `select public.today() as v`);
+    expect(f.v.acks).toEqual([]);
+  });
+
+  it('новому сотруднику с ролью ознакомление назначается сразу', async () => {
+    const north = (await t.admin<{ id: string }>(`select id from public.location where code = 'OWN-NORTH'`))[0].id;
+    const uid = await t.userId('tech@demo.example.com');
+    await t.admin(`insert into public.role_assignment(user_id, role, scope_type, scope_id, granted_by) values ($1, 'location_staff', 'location', $2, $1)`, [uid, north]);
+    const a = await t.admin(`select 1 from public.ack_assignment k join public.article a on a.id = k.article_id where k.user_id = $1 and a.slug = 'dolzhnost-menedzher-prodazh'`, [uid]);
+    expect(a.length).toBe(1);
   });
 });

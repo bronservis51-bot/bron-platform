@@ -265,3 +265,24 @@ Object.assign(tr2, {
   'Сравнение — с прошлым месяцем на то же число. Нажмите на точку, чтобы открыть её выручку по дням.': 'Karşılaştırma geçen ayın aynı günüyle yapılır. Günlük ciro için noktaya tıklayın.',
   'Страна': 'Ülke', 'Город': 'Şehir',
 });
+// Продажи на точке, лиды франшизы, должность, рубли (14.10.2026)
+Object.assign(tr2, {
+  'Позвонить': 'Ara', 'гарантия до': 'garanti bitişi', 'Новая продажа': 'Yeni satış', 'Записать': 'Kaydet', 'Телефон клиента': 'Müşteri telefonu',
+  'Чтобы найти по гарантии и позвать снова': 'Garanti için bulmak ve tekrar davet etmek için', 'Клиент': 'Müşteri', 'визитов': 'ziyaret', 'Имя': 'Ad',
+  'Что оклеили': 'Ne kaplandı', 'Модель устройства': 'Cihaz modeli', 'Из них картой': 'Kartla ödenen', 'Постоянный клиент': 'Sadık müşteri', 'постоянный клиент': 'sadık müşteri',
+  'возврат': 'iade', 'Наличные': 'Nakit', 'Возврат': 'İade', 'Возврат продажи': 'Satış iadesi', 'Оформить возврат': 'İade et', 'Предыдущий день': 'Önceki gün', 'Следующий день': 'Sonraki gün',
+  'продаж': 'satış', 'постоянных': 'sadık', 'Продаж пока нет': 'Henüz satış yok', 'В этот день продаж не записано': 'Bu gün satış kaydedilmedi',
+  'Нажмите «Новая продажа» — это займёт 10 секунд.': '«Yeni satış»a basın — 10 saniye sürer.', 'Поиск клиента': 'Müşteri ara', 'Телефон или имя': 'Telefon veya ad',
+  'Никого не нашли': 'Kimse bulunamadı', 'Клиент появится после первой продажи с его телефоном.': 'Müşteri, telefonuyla ilk satıştan sonra görünür.', 'был': 'geldi',
+  'Пригласите проверить плёнку: бесплатная проверка — повод вернуться и купить ещё.': 'Filmi kontrole davet edin: ücretsiz kontrol tekrar gelip alışveriş için bir sebep.',
+  'На этой неделе никого.': 'Bu hafta kimse yok.', 'Плёнка изнашивается примерно за полгода — предложите заменить или оклеить новый телефон.': 'Film yaklaşık altı ayda yıpranır — değiştirmeyi veya yeni telefonu kaplamayı önerin.',
+  'Пока некого возвращать.': 'Şimdilik geri çağrılacak kimse yok.', 'Продажи': 'Satışlar', 'Продажи записывают те, кто работает на точке.': 'Satışları noktada çalışanlar kaydeder.',
+  'Клиенты': 'Müşteriler', 'Вернуть клиентов': 'Müşterileri geri çağır', 'Например: любит матовые плёнки, приходит с семьёй': 'Örneğin: mat filmleri sever, ailesiyle gelir',
+  'Заметок нет': 'Not yok', 'Изменить имя или заметку': 'Adı veya notu değiştir', 'Покупки': 'Alışverişler', 'Задняя панель': 'Arka panel', 'Экран': 'Ekran', 'Полная': 'Tam',
+  'Камера': 'Kamera', 'Ноутбук': 'Dizüstü', 'Планшет': 'Tablet', 'Часы': 'Saat', 'Товар': 'Ürün', 'Перевод': 'Havale', 'Карта + наличные': 'Kart + nakit',
+  'Моя должность': 'Görevim', 'Должностная инструкция': 'Görev tanımı', 'прочитать': 'oku', 'ознакомлен': 'okundu', 'редакция от': 'sürüm tarihi',
+  'Должностная инструкция для этой должности пока не загружена.': 'Bu görev için görev tanımı henüz yüklenmedi.', 'Подставлено из продаж за смену': 'Vardiya satışlarından dolduruldu',
+  'проверьте по кассе': 'kasa ile kontrol edin', 'Продажа': 'Satış', 'Продажа записана': 'Satış kaydedildi', 'Тенге и лиры переведены в рубли по курсу дня каждой смены.': 'Tenge ve lira, her vardiya gününün kuruyla rubleye çevrildi.',
+  'Лиды франшизы': 'Franchise adayları', 'Новый лид': 'Yeni aday', 'Визитов': 'Ziyaret', 'Всего потратил': 'Toplam harcama', 'Гарантия': 'Garanti', 'нет': 'yok', 'последний': 'son',
+  'С телефоном': 'Telefonlu', 'мои': 'benim', 'День': 'Gün', 'Цена': 'Fiyat', 'Оплата': 'Ödeme', 'выручка сети за месяц, в рублях': 'aylık ağ cirosu, ruble',
+});

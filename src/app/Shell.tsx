@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Check, ChevronDown, LogOut, Menu, Search, User, Users, WifiOff, X } from 'lucide-react';
+import { Bell, Check, ChevronDown, LogOut, Menu, Search, User, Users, WifiOff, X, IdCard } from 'lucide-react';
 import { useSession } from '../platform/session';
 import { from, rows } from '../platform/backend';
 import { config, quickLoginEnabled } from '../platform/config';
@@ -92,6 +92,7 @@ function UserMenu() {
             <div className="faint">{me?.user.email}</div>
           </div>
           <div className="sep" />
+          <Link role="menuitem" to="/my-role" className="menu-link" onClick={() => setOpen(false)}><IdCard size={16} aria-hidden />{t('Моя должность')}</Link>
           {quickLoginEnabled && <button role="menuitem" onClick={() => void signOut()}><Users size={16} aria-hidden />{t('Сменить роль')}</button>}
           <button role="menuitem" onClick={() => void signOut()}><LogOut size={16} aria-hidden />{t('Выйти и очистить данные устройства')}</button>
         </div>

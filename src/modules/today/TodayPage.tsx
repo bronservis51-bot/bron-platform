@@ -5,7 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import {
-  AlertTriangle, Bell, CalendarX, Check, ChevronRight, ClipboardList, GraduationCap, Headset, Inbox, Landmark, Map as MapIcon, PackageCheck, Play, Rocket, Sparkles, Stamp,
+  AlertTriangle, Bell, CalendarX, Check, Contact, ChevronRight, ClipboardList, GraduationCap, Headset, Inbox, Landmark, Map as MapIcon, PackageCheck, Play, Rocket, Sparkles, Stamp,
 } from 'lucide-react';
 import { command } from '../../platform/backend';
 import { useScopeFilter, useSession } from '../../platform/session';
@@ -30,10 +30,11 @@ interface Today {
   balances: { accrual_id: string; number: string; period: string; currency: string; outstanding_minor: string; due_on: string; overdue: boolean }[];
   sales?: { my: MyEarnings | null; missing: { location_id: string; location_name: string; days: number }[] };
   points?: Point[];
+  crm?: { due: { id: string; name: string; city: string | null; stage: string; next_action: string; next_action_at: string; phone: string | null }[]; no_step: number };
   reminders?: { id: string; location_id: string; location_name: string; body: string; remind_on: string }[];
   supply?: { new_items: { id: string; name: string }[]; waiting: { id: string; name: string; available: boolean; expected_on: string | null }[] };
 }
-interface NetworkPoint { status: string; currency: string; revenue_minor: number; missing_days: number; stopped_tickets: number; control: { risk: number } | null; debt: { overdue_minor: number } | null }
+interface NetworkPoint { status: string; currency: string; revenue_minor: number; revenue_rub_minor: number; missing_days: number; stopped_tickets: number; control: { risk: number } | null; debt: { overdue_minor: number } | null }
 
 /** Строка списка «Нужно сделать»: всё, что требует действия, в одном месте и по важности. */
 interface Item { key: string; rank: number; icon: ReactNode; tone?: 'danger' | 'warning'; title: string; meta?: ReactNode; side?: ReactNode; to: string; checkId?: string }
@@ -41,6 +42,13 @@ interface Item { key: string; rank: number; icon: ReactNode; tone?: 'danger' | '
 function collect(d: Today, t: (s: string, v?: Record<string, unknown>) => string, staff: boolean): Item[] {
   const items: Item[] = [];
   const now = Date.now();
+  for (const c of d.crm?.due ?? []) {
+    const late = new Date(c.next_action_at) < new Date() && new Date(c.next_action_at).toDateString() !== new Date().toDateString();
+    items.push({ key: `crm${c.id}`, rank: late ? 0 : 1, tone: late ? 'warning' : undefined, icon: <Contact size={18} />, title: `${c.name}: ${c.next_action}`,
+      meta: [c.city, late ? t('просрочено') : new Date(c.next_action_at).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · '), to: `/crm/${c.id}` });
+  }
+  if (d.crm?.no_step) items.push({ key: 'crm-nostep', rank: 1, tone: 'warning', icon: <Contact size={18} />, title: t('Лиды без следующего шага: {{n}}', { n: d.crm.no_step }),
+    meta: t('Назначьте шаг, чтобы клиент не потерялся'), to: '/crm?focus=nostep' });
   for (const r of d.reminders ?? []) items.push({ key: `r${r.id}`, rank: 1, icon: <Bell size={18} />, title: r.body, meta: r.location_name, to: staff ? '/map' : `/sales?tab=location&location=${r.location_id}`, checkId: r.id,
     side: r.remind_on < new Date().toISOString().slice(0, 10) ? <span className="due-late">{formatDate(r.remind_on, intlLocale())}</span> : undefined });
   const dup = new Set(d.balances.map((b) => `/royalties/accruals/${b.accrual_id}`));
@@ -160,8 +168,7 @@ function NetworkCard() {
   const { t } = useT();
   const q = useQuery({ queryKey: ['network-map'], queryFn: () => command<{ locations: NetworkPoint[] }>('network_map'), staleTime: 60_000 });
   const list = q.data?.locations ?? [];
-  const byCur = new Map<string, number>();
-  for (const l of list) byCur.set(l.currency, (byCur.get(l.currency) ?? 0) + Number(l.revenue_minor));
+  const rub = list.reduce((a, l) => a + Number(l.revenue_rub_minor ?? 0), 0);
   const attention = list.filter((l) => l.stopped_tickets > 0 || (l.status === 'active' && l.missing_days > 2) || (l.control?.risk ?? 0) >= 3 || Number(l.debt?.overdue_minor ?? 0) > 0).length;
   return (
     <Link to="/map" className="points-card network-card">
@@ -170,7 +177,7 @@ function NetworkCard() {
         <div className="network-kpis">
           <div><span className="v">{list.length}</span><span className="l">{t('точек')}</span></div>
           <div className={attention ? 'alert' : ''}><span className="v">{attention}</span><span className="l">{t('требуют внимания')}</span></div>
-          <div className="wide"><span className="v sm">{[...byCur].map(([c, v]) => formatMoneyShort(Math.round(v / 100) * 100, c, intlLocale())).join(' · ') || '—'}</span><span className="l">{t('выручка за месяц')}</span></div>
+          <div className="wide"><span className="v">{formatMoneyShort(Math.round(rub / 100) * 100, 'RUB', intlLocale())}</span><span className="l">{t('выручка сети за месяц, в рублях')}</span></div>
         </div>
       )}
     </Link>

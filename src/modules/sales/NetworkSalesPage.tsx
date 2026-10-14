@@ -13,7 +13,8 @@ import { Chips, DataState, Input, PageHeader, Select } from '../../ui';
 interface Row {
   id: string; code: string; name: string; kind: 'own' | 'franchise'; status: string; country: string; country_name: string; city: string; currency: string;
   partner_id: string | null; partner_name: string | null; revenue_minor: number; returns_minor: number; services: number; card_minor: number; card_known_minor: number;
-  earnings_minor: number; days_with_data: number; prev_revenue_minor: number; prev_to_date_minor: number; missing_days: number; daily: [string, number][];
+  earnings_minor: number; days_with_data: number; prev_revenue_minor: number; prev_to_date_minor: number; missing_days: number; daily: [string, number, number][];
+  revenue_rub_minor: number; prev_to_date_rub_minor: number;
 }
 interface Data { month: string; days_in_month: number; today: string; locations: Row[] }
 type Group = 'point' | 'city' | 'country' | 'partner';
@@ -29,14 +30,15 @@ function Delta({ v }: { v: number | null }) {
 }
 
 /** Столбики по дням для выбранной валюты: одна серия, подсказка при наведении/нажатии. */
-function DailyBars({ rows, currency, month, days }: { rows: Row[]; currency: string; month: string; days: number }) {
+function DailyBars({ rows, month, days }: { rows: Row[]; month: string; days: number }) {
+  const currency = 'RUB';
   const { t } = useT();
   const [hover, setHover] = useState<number | null>(null);
   const series = useMemo(() => {
     const arr = Array.from({ length: days }, () => 0);
-    for (const r of rows) if (r.currency === currency) for (const [d, v] of r.daily) arr[Number(d.slice(8)) - 1] += Number(v);
+    for (const r of rows) for (const [d, , rub] of r.daily) arr[Number(d.slice(8)) - 1] += Number(rub ?? 0);
     return arr;
-  }, [rows, currency, days]);
+  }, [rows, days]);
   const max = Math.max(...series, 1);
   const W = 640; const H = 160; const gap = 2; const bw = (W - gap * (days - 1)) / days;
   const sel = hover ?? series.reduce((m, v, i) => (v > 0 ? i : m), 0);
@@ -101,26 +103,26 @@ export function NetworkSalesPage() {
           const s = q.trim().toLowerCase();
           const rows = all.filter((l) => (kind === 'all' || l.kind === kind) && (!country || l.country === country) && (!city || l.city === city)
             && (!partner || l.partner_id === partner) && (!s || `${l.name} ${l.city} ${l.partner_name ?? ''}`.toLowerCase().includes(s)));
-          const currencies = [...new Set(rows.map((r) => r.currency))];
-          const cur = currencies.includes(params.get('cur') ?? '') ? params.get('cur')! : currencies.sort((a, b) =>
-            rows.filter((r) => r.currency === b).length - rows.filter((r) => r.currency === a).length)[0];
-          const sum = (cc: string, f: (r: Row) => number) => rows.filter((r) => r.currency === cc).reduce((a, r) => a + Number(f(r)), 0);
+          const rub = rows.reduce((a, r) => a + Number(r.revenue_rub_minor ?? 0), 0);
+          const rubPrev = rows.reduce((a, r) => a + Number(r.prev_to_date_rub_minor ?? 0), 0);
+          const foreign = rows.some((r) => r.currency !== 'RUB');
           const filtered = Boolean(kind !== 'all' || country || city || partner || s);
           // Группировка: строки таблицы
-          type G = { key: string; title: string; sub: string; currency: string; revenue: number; prev: number; services: number; missing: number; count: number; link?: string };
+          type G = { key: string; title: string; sub: string; currency: string; revenue: number; prev: number; local: number; services: number; missing: number; count: number; link?: string };
           const groups = new Map<string, G>();
           for (const r of rows) {
-            const [key, title, sub] = group === 'city' ? [`${r.city}|${r.currency}`, r.city, r.country_name]
-              : group === 'country' ? [`${r.country}|${r.currency}`, r.country_name, r.currency]
-              : group === 'partner' ? [`${r.partner_id ?? 'own'}|${r.currency}`, r.partner_name ?? t('Собственные точки'), r.kind === 'own' ? t('компания') : t('франчайзи')]
+            const [key, title, sub] = group === 'city' ? [`${r.country}|${r.city}`, r.city, r.country_name]
+              : group === 'country' ? [r.country, r.country_name, r.currency === 'RUB' ? '' : r.currency]
+              : group === 'partner' ? [r.partner_id ?? 'own', r.partner_name ?? t('Собственные точки'), r.kind === 'own' ? t('компания') : t('франчайзи')]
               : [r.id, r.name, `${r.city} · ${r.kind === 'own' ? t('собственная') : r.partner_name}`];
-            const g = groups.get(key) ?? { key, title, sub, currency: r.currency, revenue: 0, prev: 0, services: 0, missing: 0, count: 0,
+            const g = groups.get(key) ?? { key, title, sub, currency: r.currency, revenue: 0, prev: 0, local: 0, services: 0, missing: 0, count: 0,
               link: group === 'point' ? `/sales?tab=location&location=${r.id}&month=${d.month}` : undefined };
-            g.revenue += Number(r.revenue_minor); g.prev += Number(r.prev_to_date_minor); g.services += r.services; g.missing += r.missing_days; g.count += 1;
+            g.revenue += Number(r.revenue_rub_minor ?? 0); g.prev += Number(r.prev_to_date_rub_minor ?? 0); g.local += Number(r.revenue_minor);
+            if (g.currency !== r.currency) g.currency = 'MIX'; g.services += r.services; g.missing += r.missing_days; g.count += 1;
             groups.set(key, g);
           }
           const list = [...groups.values()].sort((a, b) => b.revenue - a.revenue);
-          const top = Math.max(...list.filter((g) => g.currency === cur).map((g) => g.revenue), 1);
+          const top = Math.max(...list.map((g) => g.revenue), 1);
           return (
             <div className="stack">
               <div className="net-filters">
@@ -144,22 +146,20 @@ export function NetworkSalesPage() {
               </div>
 
               <div className="net-kpis">
-                {currencies.length === 0 && <div className="net-kpi"><span className="v">—</span><span className="l">{t('Нет точек по фильтру')}</span></div>}
-                {currencies.map((cc) => (
-                  <button key={cc} type="button" className={`net-kpi${cc === cur ? ' on' : ''}`} onClick={() => set({ cur: cc })} aria-pressed={cc === cur}>
-                    <span className="l">{t('Выручка')} · {cc}</span>
-                    <span className="v">{money(sum(cc, (r) => r.revenue_minor), cc)}</span>
-                    <span className="s"><Delta v={delta(sum(cc, (r) => r.revenue_minor), sum(cc, (r) => r.prev_to_date_minor))} /> {t('к прошлому месяцу на то же число')}</span>
-                  </button>
-                ))}
+                <div className="net-kpi on">
+                  <span className="l">{t('Выручка за месяц')}</span>
+                  <span className="v">{money(rub, 'RUB')}</span>
+                  <span className="s"><Delta v={delta(rub, rubPrev)} /> {t('к прошлому месяцу на то же число')}</span>
+                </div>
                 <div className="net-kpi">
                   <span className="l">{t('Точек')}</span>
                   <span className="v">{rows.length}</span>
                   <span className="s">{rows.filter((r) => r.kind === 'own').length} {t('собств.')} · {rows.filter((r) => r.kind === 'franchise').length} {t('франш.')}</span>
                 </div>
               </div>
+              {foreign && <p className="faint" style={{ margin: 0 }}>{t('Тенге и лиры переведены в рубли по курсу дня каждой смены.')}</p>}
 
-              {cur && <DailyBars rows={rows} currency={cur} month={d.month} days={d.days_in_month} />}
+              {rows.length > 0 && <DailyBars rows={rows} month={d.month} days={d.days_in_month} />}
 
               <div className="net-table-head">
                 <Chips label="Группировка" value={group} onChange={(v) => set({ group: v === 'point' ? '' : v })}
@@ -172,10 +172,11 @@ export function NetworkSalesPage() {
                       <span className="net-main">
                         <span className="net-title">{g.title}{group !== 'point' && <span className="faint"> · {g.count}</span>}</span>
                         <span className="net-sub">{g.sub}{g.missing > 0 && <span className="net-miss"> · {t('не внесено')} {g.missing} {t('дн.')}</span>}</span>
-                        {g.currency === cur && <span className="net-bar"><span style={{ width: `${Math.round((g.revenue / top) * 100)}%` }} /></span>}
+                        <span className="net-bar"><span style={{ width: `${Math.round((g.revenue / top) * 100)}%` }} /></span>
                       </span>
                       <span className="net-side">
-                        <span className="net-sum">{money(g.revenue, g.currency)}</span>
+                        <span className="net-sum">{money(g.revenue, 'RUB')}</span>
+                        {g.currency !== 'RUB' && g.currency !== 'MIX' && <span className="faint" style={{ fontSize: 12 }}>{money(g.local, g.currency)}</span>}
                         <Delta v={delta(g.revenue, g.prev)} />
                       </span>
                     </button>

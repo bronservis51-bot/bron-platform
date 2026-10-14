@@ -49,6 +49,9 @@ try {
   if (process.argv.includes('--after-users') || process.argv.includes('--seed-v3')) await apply('seed_v3.sql', readFileSync(join(root, 'supabase/seed/seed_v3.sql'), 'utf8'));
   if (process.argv.includes('--after-users') || process.argv.includes('--seed-v4')) await apply('seed_v4.sql', readFileSync(join(root, 'supabase/seed/seed_v4.sql'), 'utf8'));
   if (process.argv.includes('--after-users') || process.argv.includes('--seed-v5')) await apply('seed_v5.sql', readFileSync(join(root, 'supabase/seed/seed_v5.sql'), 'utf8'));
+  if (process.argv.includes('--after-users') || process.argv.includes('--seed-v6')) await apply('seed_v6.sql', readFileSync(join(root, 'supabase/seed/seed_v6.sql'), 'utf8'));
+  if (process.argv.includes('--after-users') || process.argv.includes('--seed-v7')) await apply('seed_v7.sql', readFileSync(join(root, 'supabase/seed/seed_v7.sql'), 'utf8'));
+  if (process.argv.includes('--after-users') || process.argv.includes('--seed-v8')) await apply('seed_v8.sql', readFileSync(join(root, 'supabase/seed/seed_v8.sql'), 'utf8'));
   console.log('Готово.');
 } finally {
   await client.end();

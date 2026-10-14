@@ -54,7 +54,7 @@ describe('границы модулей в SQL (ARCH-02)', () => {
     const modulePrefixes: Record<string, string[]> = {
       '0003_files.sql': ['file_'], '0004_tasks.sql': ['task_', 'workflow_'], '0005_franchise.sql': ['opening_', 'location_'],
       '0006_support.sql': ['ticket_'], '0007_procurement.sql': ['order_', 'cart_', 'stock_', 'catalog_'], '0008_royalties.sql': ['report_', 'royalty_', 'payment_', 'accrual_'],
-      '0009_knowledge.sql': ['article_', 'kb_'], '0016_daily_sales.sql': ['sale_', 'sales_', 'commission_', 'shift_'], '0018_shifts_commission_roles.sql': ['sales_'],
+      '0009_knowledge.sql': ['article_', 'kb_'], '0016_daily_sales.sql': ['sale_', 'sales_', 'commission_', 'shift_', 'daily_sale'], '0018_shifts_commission_roles.sql': ['sales_'],
     };
     const allowed = new Set(['0001_foundation.sql']);
     const problems: string[] = [];

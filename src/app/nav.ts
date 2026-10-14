@@ -1,5 +1,5 @@
 // Навигация по разрешённым модулям (UX-03): сервер всё равно проверяет доступ, меню лишь не показывает недоступное.
-import { Map as MapIcon, TrendingUp, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShieldAlert, ShoppingCart, Store, Rocket, Truck, Wallet } from 'lucide-react';
+import { Contact, Map as MapIcon, ShoppingBag, TrendingUp, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShieldAlert, ShoppingCart, Store, Rocket, Truck, Wallet } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -14,11 +14,13 @@ export const NAV: NavItem[] = [
   { to: '/', label: 'Сегодня', icon: Home, group: 'work', visible: () => true },
   { to: '/tasks', label: 'Моя работа', icon: ClipboardList, group: 'work', visible: (can) => can('task.work') },
   { to: '/support', label: 'Поддержка', icon: Headset, group: 'work', visible: (can) => can('ticket.read') || can('ticket.create') },
+  { to: '/pos', label: 'Продажи', icon: ShoppingBag, group: 'work', visible: (can) => can('pos.sell') },
   { to: '/sales', label: 'Выручка', icon: Wallet, group: 'work', // компания смотрит выручку через «Контроль выручки»
     visible: (can, isStaff) => can('sales.enter') || (!isStaff && can('sales.manage')) },
   { to: '/catalog', label: 'Магазин', icon: ShoppingCart, group: 'work', visible: (can) => can('order.create') && can('catalog.read') },
   { to: '/supply', label: 'Поступления', icon: Truck, group: 'work', visible: (can) => can('catalog.manage') },
   { to: '/orders', label: 'Заказы', icon: Package, group: 'work', visible: (can) => can('order.read') || can('order.create') },
+  { to: '/crm', label: 'Лиды франшизы', icon: Contact, group: 'franchise', visible: (can) => can('crm.read') },
   { to: '/partners', label: 'Партнёры и точки', icon: Store, group: 'franchise', visible: (can) => can('org.read') },
   { to: '/openings', label: 'Открытия', icon: Rocket, group: 'franchise', visible: (can) => can('opening.read') },
   { to: '/network-sales', label: 'Выручка сети', icon: TrendingUp, group: 'franchise', visible: (can, isStaff) => isStaff && can('sales.read') },
@@ -40,14 +42,14 @@ export function primaryMobile(items: NavItem[], can: (p: string) => boolean): Na
   const by = (to: string) => items.find((i) => i.to === to);
   const order = can('access.manage') && can('metrics.read')
     ? ['/', '/network-sales', '/map', '/control']
-    : can('opening.approve') && can('metrics.read')
-    ? ['/', '/map', '/openings', '/support']
+    : can('crm.manage')
+    ? ['/', '/crm', '/map', '/openings']
     : can('royalty.publish')
     ? ['/', '/royalties', '/tasks', '/support']
     : can('royalty.report.submit')
-      ? ['/', '/sales', '/catalog', '/royalties']
+      ? ['/', '/pos', '/sales', '/catalog']
       : can('sales.enter')
-        ? ['/', '/sales', '/tasks', '/support']
+        ? ['/', '/pos', '/sales', '/support']
         : can('catalog.manage')
           ? ['/', '/orders', '/supply', '/tasks']
           : can('order.approve')

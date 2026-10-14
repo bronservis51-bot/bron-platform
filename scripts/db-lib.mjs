@@ -42,6 +42,9 @@ export async function createDb({ dataDir, seed = true, users = true, onUser } = 
       await run(db, join(root, 'supabase/seed/seed_v3.sql'), 'Seed v3 (роли, смены, прозрачность, поставки)');
       await run(db, join(root, 'supabase/seed/seed_v4.sql'), 'Seed v4 (имена франчайзи и города)');
       await run(db, join(root, 'supabase/seed/seed_v5.sql'), 'Seed v5 (заметки к точкам)');
+      await run(db, join(root, 'supabase/seed/seed_v6.sql'), 'Seed v6 (CRM)');
+      await run(db, join(root, 'supabase/seed/seed_v7.sql'), 'Seed v7 (должностные инструкции)');
+      await run(db, join(root, 'supabase/seed/seed_v8.sql'), 'Seed v8 (продажи на точках)');
     }
   }
   return db;

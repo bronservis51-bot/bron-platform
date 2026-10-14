@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, CheckCircle2, Clock, Play, Square, Wallet } from 'lucide-react';
+import { Camera, CheckCircle2, Clock, Play, Plus, Square, Wallet } from 'lucide-react';
+import { useSession } from '../../platform/session';
+import { posDay } from '../pos/api';
 import { intlLocale, useT } from '../../platform/i18n';
 import { formatMoneyShort, toBigInt } from '../../platform/money';
 import { ActionError, Alert, Button, ConfirmDialog, Field, Input, MoneyInput, Select, Textarea } from '../../ui';
@@ -26,7 +28,17 @@ function CloseShiftDialog({ shift, open, onClose, onDone }: { shift: OpenShift; 
   const [comment, setComment] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (open) { setRevenue('0'); setCard('0'); setReturns('0'); setServices(''); setComment(''); setPhoto(null); } }, [open]);
+  // Продажи, записанные за смену, подставляются сами — остаётся сверить с кассой
+  const { me } = useSession();
+  const day = useQuery({ queryKey: ['pos', 'day', shift.location_id, null], enabled: open, queryFn: () => posDay(shift.location_id, null) });
+  const mine = (day.data?.sales ?? []).filter((x) => x.employee_id === me?.user.id && x.status === 'done');
+  useEffect(() => {
+    if (!open) return;
+    setReturns('0'); setComment(''); setPhoto(null);
+    setRevenue(String(mine.reduce((a, x) => a + Number(x.total_minor), 0)));
+    setCard(String(mine.reduce((a, x) => a + Number(x.card_minor), 0)));
+    setServices(mine.length ? String(mine.reduce((a, x) => a + x.lines.length, 0)) : '');
+  }, [open, day.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const cur = shift.currency;
   const net = toBigInt(revenue) - toBigInt(returns);
   const cardOver = toBigInt(card) > toBigInt(revenue);
@@ -39,6 +51,7 @@ function CloseShiftDialog({ shift, open, onClose, onDone }: { shift: OpenShift; 
     <ConfirmDialog open={open} title="Закрыть смену" confirmLabel="Закрыть смену" busy={close.isPending} error={close.error}
       onClose={() => { close.reset(); onClose(); }} onConfirm={() => close.mutate()} disabled={invalid}>
       <div className="faint" style={{ marginBottom: 12 }}>{shift.location_name} · {t('с')} {time(shift.opened_at, shift.timezone)}</div>
+      {mine.length > 0 && <div className="client-chip on" style={{ marginBottom: 12 }}>{t('Подставлено из продаж за смену')}: {mine.length} · {t('проверьте по кассе')}</div>}
       <Field label={`Выручка за смену, ${cur}`} required hint="Вся сумма: наличные + карта">{(id) => <MoneyInput id={id} value={revenue} currency={cur} onChange={setRevenue} />}</Field>
       <div className="grid grid-2">
         <Field label={`Из неё по карте, ${cur}`} hint="По отчёту терминала" error={cardOver ? t('Больше выручки') : null}>{(id) => <MoneyInput id={id} value={card} currency={cur} onChange={setCard} invalid={cardOver} />}</Field>
@@ -66,6 +79,7 @@ function CloseShiftDialog({ shift, open, onClose, onDone }: { shift: OpenShift; 
 /** Панель смены: кнопка «Начать смену», идущая смена с таймером или итог закрытой. */
 export function ShiftPanel({ data, onChanged, compact }: { data: MyEarnings; onChanged: () => void; compact?: boolean }) {
   const { t } = useT();
+  const { can } = useSession();
   const toast = useToast();
   const qc = useQueryClient();
   const [loc, setLoc] = useState(data.locations[0]?.id ?? '');
@@ -126,7 +140,8 @@ export function ShiftPanel({ data, onChanged, compact }: { data: MyEarnings; onC
       <div className="shift-actions">
         {shift ? (
           <>
-            <Button variant="silver" onClick={() => setClosing(true)}><Square size={16} aria-hidden />{t('Закрыть смену')}</Button>
+            {can('pos.sell') && <Link to={`/pos?location=${shift.location_id}&new=1`} className="btn btn-silver"><Plus size={16} aria-hidden />{t('Продажа')}</Link>}
+            <Button variant="ghost" className="shift-close-btn" onClick={() => setClosing(true)}><Square size={16} aria-hidden />{t('Закрыть смену')}</Button>
             {!compact && <button type="button" className="link-btn" onClick={() => cancelM.mutate(shift.id)} disabled={cancelM.isPending}>{t('Открыл по ошибке')}</button>}
           </>
         ) : !todayDay && l ? (

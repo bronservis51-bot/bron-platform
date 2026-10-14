@@ -53,6 +53,13 @@ const LearningPage = page(kb, 'LearningPage');
 const SalesPage = page(() => import('../modules/sales/SalesPages'), 'SalesPage');
 const NetworkMapPage = page(() => import('../modules/metrics/NetworkMapPage'), 'NetworkMapPage');
 const NetworkSalesPage = page(() => import('../modules/sales/NetworkSalesPage'), 'NetworkSalesPage');
+const MyRolePage = page(() => import('../modules/knowledge/MyRolePage'), 'MyRolePage');
+const posMod = () => import('../modules/pos/PosPages');
+const PosPage = page(posMod, 'PosPage');
+const ClientPage = page(posMod, 'ClientPage');
+const crmMod = () => import('../modules/crm/CrmPages');
+const CrmPage = page(crmMod, 'CrmPage');
+const LeadPage = page(crmMod, 'LeadPage');
 const ControlPage = page(() => import('../modules/sales/ControlPage'), 'ControlPage');
 const SupplyPage = page(() => import('../modules/procurement/SupplyPage'), 'SupplyPage');
 const OverviewPage = page(() => import('../modules/metrics/OverviewPage'), 'OverviewPage');
@@ -99,6 +106,11 @@ const router = createHashRouter([
       { path: 'catalog', element: <CatalogPage /> },
       { path: 'sales', element: <SalesPage /> },
       { path: 'control', element: <ControlPage /> },
+      { path: 'pos', element: <PosPage /> },
+      { path: 'my-role', element: <MyRolePage /> },
+      { path: 'pos/clients/:id', element: <ClientPage /> },
+      { path: 'crm', element: <CrmPage /> },
+      { path: 'crm/:id', element: <LeadPage /> },
       { path: 'network-sales', element: <NetworkSalesPage /> },
       { path: 'map', element: <NetworkMapPage /> },
       { path: 'supply', element: <SupplyPage /> },
