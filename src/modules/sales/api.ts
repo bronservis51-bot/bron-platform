@@ -15,7 +15,7 @@ export interface MyEarnings {
 export interface SalesEmployee { id: string; name: string; rate_bp: number; personal_rate: boolean; can_sell: boolean; on_shift_since: string | null }
 export interface SalesMonth {
   location: { id: string; name: string; currency: string; timezone: string }; month: string; today: string; can_manage: boolean; locked: boolean; rate_bp: number;
-  employees: SalesEmployee[]; entries: SaleEntry[]; missing_days: string[];
+  employees: SalesEmployee[]; entries: SaleEntry[]; missing_days: string[]; days_off?: { day: string; reason: string }[];
   policies: { id: string; employee_id: string | null; rate_bp: number; effective_from: string; note: string | null }[];
   totals: { revenue_minor: number; returns_minor: number; card_minor: number; services: number; days_with_data: number; earnings_minor: number }; days_in_period: number;
 }
@@ -48,6 +48,7 @@ export const salesCommands = {
   save: (a: { location: string; day: string; employee: string | null; revenue: string; returns: string; services: number; comment: string | null; expected_revision: number | null; card?: string | null }) =>
     command<SaleEntry>('sale_save', { ...a, card: a.card ?? null }),
   remove: (sale: string, reason: string) => command('sale_delete', { sale, reason }),
+  dayOff: (location: string, day: string, off: boolean, reason: string | null) => command('sales_day_off_set', { location, day, off, reason }),
   openShift: (location: string) => command<{ id: string }>('shift_open', { location }),
   cancelShift: (shift: string) => command('shift_cancel', { shift }),
   async closeShift(a: { shift: string; revenue: string; card: string | null; returns: string; services: number; comment: string | null; photo: File | null }) {

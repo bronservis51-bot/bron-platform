@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
       react(),
       cspPlugin(env.VITE_SUPABASE_URL ?? ''),
       VitePWA({
-        registerType: 'prompt', // новая версия ждёт подтверждения пользователя (PWA-06)
+        registerType: 'autoUpdate', // новая версия ставится сама: черновики хранятся в IndexedDB и переживают перезагрузку (PWA-06)
         injectRegister: false,
         includeAssets: ['icons/*.svg', 'icons/*.png'],
         manifest: {
@@ -62,6 +62,8 @@ export default defineConfig(({ mode }) => {
           navigateFallback: `${base}index.html`,
           runtimeCaching: [],
           cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
         },
       }),
     ],

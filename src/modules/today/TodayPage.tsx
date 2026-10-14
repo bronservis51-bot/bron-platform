@@ -1,18 +1,23 @@
-// «Сегодня» (CORE-01, UX-02): что сделать, до какого срока, для какой точки и что мешает.
+// «Сегодня» (CORE-01, UX-02): спокойная страница без лишнего. Приветствие, один главный блок под должность
+// (смена — менеджеру продаж, точки — франчайзи и управляющему, сеть — руководству) и единый список «Нужно сделать».
+// Действия, которые нужны не всем (заказ, инструкции, обращение), живут в своих разделах меню.
+import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { AlertTriangle, BookOpen, CalendarX, Clock, Truck, CheckCircle2, ClipboardList, FileText, GraduationCap, Headset, Inbox, Landmark, PencilLine, Rocket, ShoppingCart, Stamp, Wallet } from 'lucide-react';
-import { BrandPattern, LogoMark } from '../../ui/brand';
+import {
+  AlertTriangle, CalendarX, Check, ChevronRight, ClipboardList, GraduationCap, Headset, Inbox, Landmark, Map as MapIcon, PackageCheck, PencilLine, Play, Rocket, Sparkles, Stamp,
+} from 'lucide-react';
 import { command } from '../../platform/backend';
 import { useScopeFilter, useSession } from '../../platform/session';
 import { formatDate, formatPeriod } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
-import { Badge, Card, DataState, Due, EmptyState, LinkButton, Money } from '../../ui';
-import { st, TASK_STATUS, TICKET_STATUS, URGENCY } from '../../ui/status';
+import { formatMoneyShort } from '../../platform/money';
+import { DataState, Due, Money } from '../../ui';
+import { BrandPattern } from '../../ui/brand';
 import type { MyEarnings } from '../sales/api';
 import { ShiftPanel } from '../sales/ShiftPanel';
-import { ProductMockup, type Visual } from '../procurement/Mockup';
 
+interface Point { id: string; name: string; status: string; currency: string; revenue_minor: number; today_minor: number; days_passed: number; missing: number; on_shift: string[] }
 interface Today {
   my_tasks: { id: string; number: string; title: string; status: string; due_at: string | null; priority: string; location_name: string | null; partner_name: string | null; status_reason: string | null }[];
   queue_tasks: { id: string; number: string; title: string; due_at: string | null; queue_name: string; location_name: string | null }[];
@@ -23,12 +28,143 @@ interface Today {
   critical: { id: string; title: string; body: string | null; link: string | null; created_at: string }[];
   openings: { id: string; number: string; status: string; planned_open_on: string; location_name: string; done_tasks: number; total_tasks: number; critical_open: number; overdue_tasks: number; date_at_risk: boolean }[];
   balances: { accrual_id: string; number: string; period: string; currency: string; outstanding_minor: string; due_on: string; overdue: boolean }[];
-  sales?: { my: MyEarnings | null; missing: { location_id: string; location_name: string; days: number }[]; on_shift?: { location_name: string; name: string; opened_at: string }[] };
-  supply?: { new_items: { id: string; name: string; subtitle: string | null; visual: Visual; sku: string }[]; waiting: { id: string; name: string; available: boolean; expected_on: string | null }[] };
+  sales?: { my: MyEarnings | null; missing: { location_id: string; location_name: string; days: number }[] };
+  points?: Point[];
+  supply?: { new_items: { id: string; name: string }[]; waiting: { id: string; name: string; available: boolean; expected_on: string | null }[] };
+}
+interface NetworkPoint { status: string; currency: string; revenue_minor: number; missing_days: number; stopped_tickets: number; control: { risk: number } | null; debt: { overdue_minor: number } | null }
+
+/** Строка списка «Нужно сделать»: всё, что требует действия, в одном месте и по важности. */
+interface Item { key: string; rank: number; icon: ReactNode; tone?: 'danger' | 'warning'; title: string; meta?: ReactNode; side?: ReactNode; to: string }
+
+function collect(d: Today, t: (s: string, v?: Record<string, unknown>) => string): Item[] {
+  const items: Item[] = [];
+  const now = Date.now();
+  const dup = new Set(d.balances.map((b) => `/royalties/accruals/${b.accrual_id}`));
+  for (const c of d.critical.filter((c) => !c.link || !dup.has(c.link))) items.push({ key: `c${c.id}`, rank: 0, tone: 'danger', icon: <AlertTriangle size={18} />, title: c.title, meta: c.body, to: c.link ?? '/notifications' });
+  for (const a of d.approvals) items.push({ key: `a${a.kind}${a.id}`, rank: 1, icon: <Stamp size={18} />, title: a.title, meta: <span className="mono">{a.number}</span>,
+    side: a.amount_minor && a.currency ? <Money minor={a.amount_minor} currency={a.currency} short /> : undefined, to: a.link });
+  for (const b of d.balances) items.push({ key: `b${b.accrual_id}`, rank: b.overdue ? 0 : 3, tone: b.overdue ? 'danger' : undefined, icon: <Landmark size={18} />,
+    title: t('Оплатить роялти за {{p}}', { p: formatPeriod(b.period, intlLocale()).toLowerCase() }),
+    meta: b.overdue ? t('Срок прошёл') : `${t('до')} ${formatDate(b.due_on, intlLocale())}`, side: <Money minor={b.outstanding_minor} currency={b.currency} short />, to: `/royalties/accruals/${b.accrual_id}` });
+  for (const x of d.my_tasks) {
+    const overdue = x.due_at && new Date(x.due_at).getTime() < now;
+    items.push({ key: `t${x.id}`, rank: overdue ? 1 : 2, tone: overdue ? 'warning' : undefined, icon: <ClipboardList size={18} />, title: x.title,
+      meta: x.location_name ?? x.partner_name ?? undefined, side: <Due at={x.due_at} />, to: `/tasks/${x.id}` });
+  }
+  for (const k of d.tickets) {
+    const mine = k.status === 'waiting_partner' && k.relation === 'author';
+    items.push({ key: `k${k.id}`, rank: k.urgency === 'stopped' ? 0 : mine ? 1 : 3, tone: k.urgency === 'stopped' ? 'danger' : undefined, icon: <Headset size={18} />,
+      title: mine ? `${t('Ответьте')}: ${k.subject}` : k.subject, meta: k.location_name, side: !['resolved', 'closed'].includes(k.status) ? <Due at={k.resolve_due} /> : undefined, to: `/support/${k.id}` });
+  }
+  for (const x of d.queue_tasks) items.push({ key: `q${x.id}`, rank: 4, icon: <Inbox size={18} />, title: x.title, meta: `${t('Можно взять')} · ${x.queue_name}`, side: <Due at={x.due_at} />, to: `/tasks/${x.id}` });
+  for (const o of d.openings.filter((o) => o.date_at_risk || o.overdue_tasks > 0 || o.critical_open > 0))
+    items.push({ key: `o${o.id}`, rank: 2, tone: 'warning', icon: <Rocket size={18} />, title: `${t('Открытие под угрозой')}: ${o.location_name}`,
+      meta: `${t('План')} ${formatDate(o.planned_open_on, intlLocale())} · ${o.done_tasks}/${o.total_tasks}`, to: `/openings/${o.id}` });
+  for (const a of d.acks) items.push({ key: `k${a.id}`, rank: 5, icon: <GraduationCap size={18} />, title: `${t('Прочитать')}: ${a.title}`, meta: `${t('до')} ${formatDate(a.due_on, intlLocale())}`, to: `/kb/articles/${a.article_id}` });
+  for (const x of d.drafts) items.push({ key: `d${x.kind}${x.id}`, rank: 6, icon: <PencilLine size={18} />, title: `${t('Черновик')}: ${x.title}`, to: x.link });
+  for (const w of d.supply?.waiting.filter((w) => w.available) ?? [])
+    items.push({ key: `s${w.id}`, rank: 3, icon: <PackageCheck size={18} />, title: `${t('Поступило')}: ${w.name}`, meta: t('Вы ждали этот товар'), to: '/catalog' });
+  if (d.supply?.new_items.length)
+    items.push({ key: 'new', rank: 7, icon: <Sparkles size={18} />, title: `${t('Новинки в магазине')}: ${d.supply.new_items.slice(0, 3).map((n) => n.name).join(', ')}`, to: '/catalog' });
+  return items.sort((a, b) => a.rank - b.rank);
+}
+
+function TodoList({ items }: { items: Item[] }) {
+  const { t } = useT();
+  const [all, setAll] = useState(false);
+  const shown = all ? items : items.slice(0, 6);
+  if (!items.length) {
+    return (
+      <div className="todo-done">
+        <span className="todo-done-icon"><Check size={22} /></span>
+        <div><strong>{t('Всё сделано')}</strong><div className="faint">{t('Новые задачи и решения появятся здесь.')}</div></div>
+      </div>
+    );
+  }
+  return (
+    <section className="todo" aria-labelledby="todo-title">
+      <h2 id="todo-title" className="section-title">{t('Нужно сделать')} <span className="count-pill">{items.length}</span></h2>
+      <ul className="todo-list">
+        {shown.map((i) => (
+          <li key={i.key}>
+            <Link to={i.to} className={`todo-item${i.tone ? ` ${i.tone}` : ''}`}>
+              <span className="todo-icon">{i.icon}</span>
+              <span className="todo-main"><span className="todo-title">{i.title}</span>{i.meta && <span className="todo-meta">{i.meta}</span>}</span>
+              {i.side && <span className="todo-side">{i.side}</span>}
+              <ChevronRight size={16} className="todo-chevron" aria-hidden />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {items.length > 6 && <button type="button" className="show-more" onClick={() => setAll((x) => !x)}>{all ? t('Свернуть') : `${t('Показать все')} (${items.length})`}</button>}
+    </section>
+  );
+}
+
+/** Франчайзи и управляющий: свои точки — выручка месяца и сколько дней не заполнено. */
+function PointsCard({ points, canSell }: { points: Point[]; canSell: boolean }) {
+  const { t } = useT();
+  return (
+    <section className="points-card">
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h2 className="section-title" style={{ margin: 0, color: 'inherit' }}>{points.length > 1 ? t('Мои точки') : t('Моя точка')}</h2>
+        {canSell && <Link to="/sales" className="pill-link"><Play size={14} aria-hidden /> {t('Начать свою смену')}</Link>}
+      </div>
+      <ul className="points-list">
+        {points.map((p) => {
+          const filled = Math.max(0, p.days_passed - p.missing);
+          return (
+            <li key={p.id}>
+              <Link to={`/sales?tab=location&location=${p.id}${p.missing ? '&only=missing' : ''}`} className="point-row">
+                <span className="point-main">
+                  <span className="point-name">{p.name}</span>
+                  <span className="point-meta">
+                    {p.status !== 'active' ? t('открывается')
+                      : p.on_shift.length ? <><span className="on-shift-dot" />{p.on_shift.join(', ')} {t('на смене')}</> : t('никто не на смене')}
+                  </span>
+                </span>
+                {p.status === 'active' && (
+                  <span className="point-side">
+                    <span className="point-sum">{formatMoneyShort(p.revenue_minor, p.currency, intlLocale())}</span>
+                    {p.missing > 0
+                      ? <span className="point-missing"><CalendarX size={13} aria-hidden /> {t('не внесено')} {p.missing} {t('дн.')}</span>
+                      : <span className="point-ok"><Check size={13} aria-hidden /> {filled}/{p.days_passed} {t('дн.')}</span>}
+                  </span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Руководство: сеть одной строкой и вход в карту. */
+function NetworkCard() {
+  const { t } = useT();
+  const q = useQuery({ queryKey: ['network-map'], queryFn: () => command<{ locations: NetworkPoint[] }>('network_map'), staleTime: 60_000 });
+  const list = q.data?.locations ?? [];
+  const byCur = new Map<string, number>();
+  for (const l of list) byCur.set(l.currency, (byCur.get(l.currency) ?? 0) + Number(l.revenue_minor));
+  const attention = list.filter((l) => l.stopped_tickets > 0 || (l.status === 'active' && l.missing_days > 2) || (l.control?.risk ?? 0) >= 3 || Number(l.debt?.overdue_minor ?? 0) > 0).length;
+  return (
+    <Link to="/map" className="points-card network-card">
+      <div className="row between"><h2 className="section-title" style={{ margin: 0, color: 'inherit' }}>{t('Сеть')}</h2><span className="pill-link"><MapIcon size={14} aria-hidden /> {t('Карта')}</span></div>
+      {q.isLoading ? <div className="faint" style={{ marginTop: 10 }}>{t('Загрузка…')}</div> : (
+        <div className="network-kpis">
+          <div><span className="v">{list.length}</span><span className="l">{t('точек')}</span></div>
+          <div className={attention ? 'alert' : ''}><span className="v">{attention}</span><span className="l">{t('требуют внимания')}</span></div>
+          <div className="wide"><span className="v sm">{[...byCur].map(([c, v]) => formatMoneyShort(Math.round(v / 100) * 100, c, intlLocale())).join(' · ') || '—'}</span><span className="l">{t('выручка за месяц')}</span></div>
+        </div>
+      )}
+    </Link>
+  );
 }
 
 export function TodayPage() {
-  const { me, can, context } = useSession();
+  const { me, can, isStaff } = useSession();
   const { partnerId, locationId } = useScopeFilter();
   const { t } = useT();
   const q = useQuery({
@@ -38,252 +174,32 @@ export function TodayPage() {
   });
   const first = me?.user.full_name.split(' ')[0];
   const date = new Date().toLocaleDateString(intlLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const hour = new Date().getHours();
+  const hello = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
 
   return (
-    <>
-      <section className="hero" aria-labelledby="today-title">
-        <BrandPattern className="hero-pattern" rows={4} cols={6} />
-        <span className="hero-mark"><LogoMark height={190} /></span>
-        <h1 id="today-title">{first ? t('Добрый день, {{name}}', { name: first }) : t('Сегодня')}</h1>
-        <div className="hero-sub">{date}{context ? ` · ${context.scope_name}` : ''}</div>
-        <div className="hero-actions">
-          {can('sales.enter') && <LinkButton to="/sales" size="sm" variant="silver"><Wallet size={16} aria-hidden />{t('Внести выручку')}</LinkButton>}
-          {can('ticket.create') && <LinkButton to="/support/new" size="sm"><Headset size={16} aria-hidden />{t('Новое обращение')}</LinkButton>}
-          {can('order.create') && <LinkButton to="/catalog" size="sm"><ShoppingCart size={16} aria-hidden />{t('Заказать')}</LinkButton>}
-          {can('royalty.report.submit') && <LinkButton to="/royalties" size="sm"><FileText size={16} aria-hidden />{t('Сдать отчёт')}</LinkButton>}
-          {can('kb.read') && <LinkButton to="/kb" size="sm"><BookOpen size={16} aria-hidden />{t('Найти инструкцию')}</LinkButton>}
-        </div>
-        {q.data && (
-          <div className="hero-kpis">
-            <a className="hero-kpi" href="#/tasks"><div className="v">{q.data.my_tasks.length}</div><div className="l">{t('Мои задачи')}</div></a>
-            <a className={`hero-kpi${q.data.my_tasks.some((x) => x.due_at && new Date(x.due_at) < new Date()) ? ' alert' : ''}`} href="#/tasks">
-              <div className="v">{q.data.my_tasks.filter((x) => x.due_at && new Date(x.due_at) < new Date()).length}</div><div className="l">{t('Просрочено')}</div></a>
-            <a className="hero-kpi" href="#/"><div className="v">{q.data.approvals.length}</div><div className="l">{t('Ждут моего решения')}</div></a>
-            <a className="hero-kpi" href="#/support"><div className="v">{q.data.tickets.length}</div><div className="l">{t('Обращения')}</div></a>
-          </div>
-        )}
-      </section>
-      <DataState query={q} skeleton={6}>
+    <div className="today">
+      <header className="today-head">
+        <BrandPattern className="today-pattern" rows={2} cols={5} />
+        <div className="today-date">{date}</div>
+        <h1>{t(hello)}{first ? `, ${first}` : ''}</h1>
+      </header>
+      <DataState query={q} skeleton={4}>
         {(d) => {
-          const earn = (cls: string) => (d.sales?.my && (d.sales.my.locations.length || d.sales.my.open_shift)
-            ? <div className={cls}><ShiftPanel data={d.sales.my} onChanged={() => void q.refetch()} compact /></div> : null);
-          const nothing = !d.my_tasks.length && !d.queue_tasks.length && !d.tickets.length && !d.approvals.length && !d.acks.length && !d.critical.length && !d.drafts.length && !d.balances.length;
+          const my = d.sales?.my;
+          const points = d.points ?? [];
+          const seller = Boolean(my && (my.locations.length || my.open_shift));
           return (
-            <div className="grid grid-main">
-              <div className="stack">
-                {earn('mobile-only')}
-                {nothing && (
-                  <Card><EmptyState icon={<CheckCircle2 size={22} aria-hidden />} title={t('Всё сделано')} text="Нет задач, согласований и обращений, требующих вашего действия." /></Card>
-                )}
-                {d.approvals.length > 0 && (
-                  <Card title={t('Ждут моего решения')} icon={<Stamp size={18} />} bodyless>
-                    <ul className="list">
-                      {d.approvals.map((a) => (
-                        <li key={`${a.kind}-${a.id}`}>
-                          <Link className="list-item" to={a.link}>
-                            <div className="main-col">
-                              <div className="title">{a.title}</div>
-                              <div className="meta"><span className="mono">{a.number}</span><span>{formatDate(a.at, intlLocale())}</span></div>
-                            </div>
-                            {a.amount_minor && a.currency && <div className="side"><Money minor={a.amount_minor} currency={a.currency} /></div>}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                <Card title={t('Мои задачи')} icon={<ClipboardList size={18} />} actions={<Link to="/tasks">{t('Все задачи')}</Link>} bodyless>
-                  {d.my_tasks.length ? (
-                    <ul className="list">
-                      {d.my_tasks.map((x) => {
-                        const [label, tone] = st(TASK_STATUS, x.status);
-                        return (
-                          <li key={x.id}>
-                            <Link className="list-item" to={`/tasks/${x.id}`}>
-                              <div className="main-col">
-                                <div className="title">{x.title}</div>
-                                <div className="meta">
-                                  <span className="mono">{x.number}</span>
-                                  {(x.location_name || x.partner_name) && <span>{x.location_name ?? x.partner_name}</span>}
-                                  {x.status_reason && ['blocked', 'waiting_external'].includes(x.status) && <span>{t('Мешает')}: {x.status_reason}</span>}
-                                </div>
-                              </div>
-                              <div className="side"><Due at={x.due_at} /><Badge tone={tone}>{t(label)}</Badge></div>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : <EmptyState title={t('Нет задач на сегодня')} text="Новые задачи из очереди появятся ниже." />}
-                </Card>
-                {d.tickets.length > 0 && (
-                  <Card title={t('Обращения')} icon={<Headset size={18} />} actions={<Link to="/support">{t('Все')}</Link>} bodyless>
-                    <ul className="list">
-                      {d.tickets.map((k) => {
-                        const [label, tone] = st(TICKET_STATUS, k.status);
-                        const [ul, ut] = st(URGENCY, k.urgency);
-                        return (
-                          <li key={k.id}>
-                            <Link className="list-item" to={`/support/${k.id}`}>
-                              <div className="main-col">
-                                <div className="title">{k.subject}</div>
-                                <div className="meta"><span className="mono">{k.number}</span><span>{k.location_name}</span>{k.urgency !== 'normal' && <Badge tone={ut}>{t(ul)}</Badge>}</div>
-                              </div>
-                              <div className="side"><Badge tone={tone}>{t(label)}</Badge>{!['resolved', 'closed'].includes(k.status) && <Due at={k.resolve_due} />}</div>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </Card>
-                )}
-                {d.queue_tasks.length > 0 && (
-                  <Card title={t('Очередь моих ролей')} icon={<Inbox size={18} />} bodyless>
-                    <ul className="list">
-                      {d.queue_tasks.map((x) => (
-                        <li key={x.id}>
-                          <Link className="list-item" to={`/tasks/${x.id}`}>
-                            <div className="main-col">
-                              <div className="title">{x.title}</div>
-                              <div className="meta"><span>{x.queue_name}</span>{x.location_name && <span>{x.location_name}</span>}</div>
-                            </div>
-                            <div className="side"><Due at={x.due_at} /></div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-              </div>
-              <div className="stack">
-                {earn('desktop-only')}
-                {d.sales?.on_shift && d.sales.on_shift.length > 0 && (
-                  <Card title={t('Сейчас на смене')} icon={<Clock size={18} />} iconTone="dark" bodyless>
-                    <ul className="list">
-                      {d.sales.on_shift.map((w, i) => (
-                        <li key={i} className="list-item" style={{ cursor: 'default' }}>
-                          <div className="main-col"><div className="title"><span className="on-shift-dot" />{w.name}</div><div className="meta">{w.location_name}</div></div>
-                          <div className="side faint">{t('с')} {new Date(w.opened_at).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                {d.supply && (d.supply.new_items.length > 0 || d.supply.waiting.length > 0) && (
-                  <Card title={t('Поставки')} icon={<Truck size={18} />} actions={<Link to="/catalog">{t('В магазин')}</Link>} bodyless>
-                    <ul className="list">
-                      {d.supply.waiting.map((w) => (
-                        <li key={w.id}><Link className="list-item" to="/catalog">
-                          <div className="main-col"><div className="title">{w.name}</div><div className="meta">{t('Вы ждёте этот товар')}</div></div>
-                          <div className="side">{w.available ? <Badge tone="success">{t('в наличии')}</Badge>
-                            : w.expected_on ? <Badge tone="info" icon={false}>{t('ожидается')} {formatDate(w.expected_on, intlLocale())}</Badge> : <Badge tone="neutral">{t('нет в наличии')}</Badge>}</div>
-                        </Link></li>
-                      ))}
-                      {d.supply.new_items.map((n) => (
-                        <li key={n.id}><Link className="list-item" to="/catalog">
-                          <span className="today-mockup"><ProductMockup visual={n.visual} seed={n.sku} /></span>
-                          <div className="main-col"><div className="title">{n.name}</div><div className="meta">{n.subtitle}</div></div>
-                          <div className="side"><Badge tone="info" icon={false}>{t('Новинка')}</Badge></div>
-                        </Link></li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                {d.sales && d.sales.missing.length > 0 && (
-                  <Card title={t('Не заполнена выручка')} icon={<CalendarX size={18} />} iconTone="danger" bodyless>
-                    <ul className="list">
-                      {d.sales.missing.map((m) => (
-                        <li key={m.location_id}>
-                          <Link className="list-item" to={`/sales?tab=location&location=${m.location_id}`}>
-                            <div className="main-col"><div className="title">{m.location_name}</div><div className="meta">{t('Пропущено дней в этом месяце')}: {m.days}</div></div>
-                            <div className="side"><Badge tone="warning" icon={false}>{t('дозаполнить')}</Badge></div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                {d.critical.length > 0 && (
-                  <Card title={t('Критические события')} icon={<AlertTriangle size={18} />} iconTone="danger" bodyless>
-                    <ul className="list">
-                      {d.critical.map((c) => (
-                        <li key={c.id}>
-                          <Link className="list-item" to={c.link ?? '/notifications'}>
-                            <div className="main-col"><div className="title">{c.title}</div>{c.body && <div className="meta">{c.body}</div>}</div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                {d.balances.length > 0 && (
-                  <Card title={t('К оплате')} icon={<Landmark size={18} />} iconTone="dark" bodyless>
-                    <ul className="list">
-                      {d.balances.map((b) => (
-                        <li key={b.accrual_id}>
-                          <Link className="list-item" to={`/royalties/accruals/${b.accrual_id}`}>
-                            <div className="main-col">
-                              <div className="title">{t('Роялти за {{p}}', { p: formatPeriod(b.period, intlLocale()).toLowerCase() })}</div>
-                              <div className="meta">{t('Срок')} {formatDate(b.due_on, intlLocale())}</div>
-                            </div>
-                            <div className="side"><Money minor={b.outstanding_minor} currency={b.currency} strong />{b.overdue && <Badge tone="danger">просрочено</Badge>}</div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                {d.acks.length > 0 && (
-                  <Card title={t('Обязательно к ознакомлению')} icon={<GraduationCap size={18} />} bodyless>
-                    <ul className="list">
-                      {d.acks.map((a) => (
-                        <li key={a.id}>
-                          <Link className="list-item" to={`/kb/articles/${a.article_id}`}>
-                            <div className="main-col"><div className="title">{a.title}</div><div className="meta">{t('до')} {formatDate(a.due_on, intlLocale())}</div></div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                {d.openings.length > 0 && (
-                  <Card title={t('Открытия точек')} icon={<Rocket size={18} />} bodyless>
-                    <ul className="list">
-                      {d.openings.map((o) => (
-                        <li key={o.id}>
-                          <Link className="list-item" to={`/openings/${o.id}`}>
-                            <div className="main-col">
-                              <div className="title">{o.location_name}</div>
-                              <div className="meta"><span>{t('План')}: {formatDate(o.planned_open_on, intlLocale())}</span><span>{o.done_tasks}/{o.total_tasks} {t('задач')}</span></div>
-                            </div>
-                            <div className="side">
-                              {o.date_at_risk || o.overdue_tasks > 0 ? <Badge tone="danger">риск даты</Badge> : <Badge tone="success">в графике</Badge>}
-                              {o.critical_open > 0 && <span className="faint">{o.critical_open} {t('критич.')}</span>}
-                            </div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-                {d.drafts.length > 0 && (
-                  <Card title={t('Незавершённые черновики')} icon={<PencilLine size={18} />} bodyless>
-                    <ul className="list">
-                      {d.drafts.map((x) => (
-                        <li key={`${x.kind}-${x.id}`}>
-                          <Link className="list-item" to={x.link}>
-                            <div className="main-col"><div className="title">{x.title}</div><div className="meta">{x.items ? `${x.items} ${t('поз.')} ` : ''}{t('изменено')} {formatDate(x.updated_at, intlLocale())}</div></div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-              </div>
+            <div className="today-body">
+              {/* Главный блок под должность */}
+              {seller && (!points.length || my?.open_shift) && <ShiftPanel data={my!} onChanged={() => void q.refetch()} compact />}
+              {points.length > 0 && <PointsCard points={points} canSell={seller && !my?.open_shift} />}
+              {isStaff && can('metrics.read') && <NetworkCard />}
+              <TodoList items={collect(d, t)} />
             </div>
           );
         }}
       </DataState>
-    </>
+    </div>
   );
 }

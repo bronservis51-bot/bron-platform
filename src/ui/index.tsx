@@ -234,7 +234,10 @@ export function Money({ minor, currency, strong, short }: { minor: MinorInput; c
 }
 
 /** Ввод суммы в рублях/тенге/лирах с запятой; наружу — минорные единицы строкой (без float). */
-export function MoneyInput({ id, value, onChange, currency, invalid }: { id: string; value: string; onChange: (minor: string) => void; currency: string; invalid?: boolean }) {
+export function MoneyInput({ id, value, onChange, currency, invalid, placeholder, inputRef, onEnter }: {
+  id: string; value: string; onChange: (minor: string) => void; currency: string; invalid?: boolean; placeholder?: string;
+  inputRef?: (el: HTMLInputElement | null) => void; onEnter?: () => void;
+}) {
   const show = (v: string) => (v && v !== '0' ? minorToDecimal(v, currency).replace('.', ',').replace(/,00$/, '') : '');
   const [text, setText] = useState(() => show(value));
   const [bad, setBad] = useState(false);
@@ -244,7 +247,8 @@ export function MoneyInput({ id, value, onChange, currency, invalid }: { id: str
     if (cur === null || cur.toString() !== (value || '0')) { setText(show(value)); setBad(false); }
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Input id={id} inputMode="decimal" value={text} aria-invalid={bad || invalid || undefined}
+    <Input id={id} ref={inputRef} inputMode="decimal" enterKeyHint={onEnter ? 'done' : undefined} placeholder={placeholder} value={text} aria-invalid={bad || invalid || undefined}
+      onKeyDown={onEnter ? (e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } } : undefined}
       onChange={(e) => {
         setText(e.target.value);
         const v = e.target.value.trim() === '' ? 0n : parseMoney(e.target.value, currency);

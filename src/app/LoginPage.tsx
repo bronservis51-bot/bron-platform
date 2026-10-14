@@ -4,7 +4,7 @@ import { Building2, ChevronRight, Store, Users, Crown, Landmark, Package, Headse
 import { BrandPattern, LogoFull, LogoMark } from '../ui/brand';
 import { useSession } from '../platform/session';
 import { config, quickLoginEnabled } from '../platform/config';
-import { Alert, Button, Checkbox, Field, Input } from '../ui';
+import { Button, Checkbox, Field, Input } from '../ui';
 import demoUsers from '../../supabase/seed/demo-users.json';
 
 interface DemoUser { email: string; name: string; group: 'company' | 'own' | 'partner'; title: string; scope: string; hint: string; hidden?: boolean }
@@ -53,7 +53,7 @@ function QuickLogin({ onError }: { onError: (msg: string) => void }) {
   return (
     <div>
       <h2 style={{ fontSize: 'var(--fs-l)', marginBottom: 4 }}>Выберите роль</h2>
-      <p className="muted" style={{ marginBottom: 16 }}>Войдите под нужной должностью, чтобы увидеть систему её глазами. Сменить роль можно в меню справа вверху.</p>
+      <p className="muted" style={{ marginBottom: 16 }}>Нажмите на должность, чтобы войти. Сменить роль можно в профиле.</p>
       {busy && slow && <div className="slow-hint" role="status">Соединяемся с сервером… Демо-стенд размещён за рубежом, первый вход может занять до 20 секунд.</div>}
       {GROUPS.map((g) => (
         <section key={g.id} style={{ marginBottom: 20 }}>
@@ -121,13 +121,6 @@ export function LoginPage() {
       </aside>
       <main className="login-panel">
         <div className="inner">
-          {config.appEnv === 'demo' && (
-            <div style={{ marginBottom: 20 }}>
-              <Alert tone="demo" title="Демонстрационный стенд">
-                Синтетические данные и demo-интеграции. Реальные заказы, оплаты и персональные данные не вводите.
-              </Alert>
-            </div>
-          )}
           {quickLoginEnabled && <QuickLogin onError={setError} />}
           {quickLoginEnabled && error && <div className="alert tone-danger" role="alert" style={{ marginBottom: 12 }}><div className="alert-body">{error}</div></div>}
           {quickLoginEnabled

@@ -232,3 +232,18 @@ Object.assign(tr2, {
   'Требует внимания': 'Dikkat gerekiyor', 'Требуют внимания': 'Dikkat gerektirenler', 'Собственные': 'Kendi noktalar', 'Франшизы': 'Franchise noktaları',
   'Все точки': 'Tüm noktalar', 'Внимание': 'Dikkat', 'Карточка франчайзи': 'Franchise kartı', 'Выручка по дням': 'Günlük ciro', 'Проект открытия': 'Açılış projesi',
 });
+Object.assign(tr2, {
+  'Нужно сделать': 'Yapılacaklar', 'Всё сделано': 'Hepsi tamam', 'Новые задачи и решения появятся здесь.': 'Yeni görevler ve kararlar burada görünecek.',
+  'Показать все': 'Tümünü göster', 'Свернуть': 'Daralt', 'Доброе утро': 'Günaydın', 'Добрый вечер': 'İyi akşamlar', 'Доброй ночи': 'İyi geceler', 'Добрый день': 'İyi günler',
+  'Оплатить роялти за {{p}}': '{{p}} royaltisini öde', 'Срок прошёл': 'Süre doldu', 'Ответьте': 'Yanıtlayın', 'Можно взять': 'Alınabilir', 'Открытие под угрозой': 'Açılış risk altında',
+  'Прочитать': 'Oku', 'Черновик': 'Taslak', 'Вы ждали этот товар': 'Bu ürünü bekliyordunuz', 'Новинки в магазине': 'Mağazada yeniler',
+  'Мои точки': 'Noktalarım', 'Моя точка': 'Noktam', 'Начать свою смену': 'Kendi vardiyamı başlat', 'на смене': 'vardiyada', 'не внесено': 'girilmedi',
+  'Сеть': 'Ağ', 'Карта': 'Harita', 'точек': 'nokta', 'выручка за месяц': 'aylık ciro', 'Загрузка…': 'Yükleniyor…',
+  'Месяц точки': 'Noktanın ayı', 'Выручка за месяц': 'Aylık ciro', 'менеджерам': 'temsilcilere', 'Заполнено': 'Dolduruldu', 'Месяц сдан отчётом. Исправления — через финансы.': 'Ay raporla teslim edildi. Düzeltmeler finans üzerinden.',
+  'Не внесено дней': 'Girilmemiş gün', 'Показать все дни': 'Tüm günleri göster', 'Заполнить пропуски': 'Eksikleri doldur', 'Все дни заполнены': 'Tüm günler dolu', 'Сдать отчёт за месяц': 'Aylık raporu gönder',
+  'Пропусков нет': 'Eksik yok', 'Все прошедшие дни заполнены или отмечены как нерабочие.': 'Geçmiş tüm günler dolduruldu veya kapalı olarak işaretlendi.',
+  'окл.': 'kpl.', 'Не работали': 'Çalışılmadı', 'смена идёт': 'vardiya sürüyor', 'ещё сотрудник': 'başka çalışan', 'По сотрудникам': 'Çalışanlara göre',
+  'выручка и заработок за месяц': 'aylık ciro ve kazanç', 'с выручки': 'cirodan', 'Итого нетто': 'Net toplam', 'базовый': 'temel',
+  'Почему точка не работала?': 'Nokta neden çalışmadı?', 'Выходной': 'Tatil günü', 'Санитарный день ТЦ': 'AVM temizlik günü', 'Болезнь': 'Hastalık', 'Ремонт': 'Tadilat',
+  'Кто работал': 'Kim çalıştı', 'Оклеек': 'Kaplama', 'Точка не работала': 'Nokta çalışmadı', 'Отметка снята': 'İşaret kaldırıldı',
+});

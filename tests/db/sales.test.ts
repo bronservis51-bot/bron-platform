@@ -210,3 +210,29 @@ describe('поставки: поступления, подписка, новин
     expect(today2.v.supply.new_items.length).toBeGreaterThan(0);
   });
 });
+
+describe('нерабочие дни', () => {
+  it('франчайзи отмечает «точка не работала» с причиной — день не считается пропуском; выручка снимает отметку', async () => {
+    const [m0] = await t.as<{ v: { missing_days: string[] } }>(OWNER, `select public.sales_month($1, $2::date) as v`, [alpha1, today]);
+    const day = m0.v.missing_days.find((d) => d < today)!;
+    expect(day).toBeTruthy();
+    await t.expectError(OWNER, `select public.sales_day_off_set($1, $2::date, true, '')`, 'validation', [alpha1, day]);
+    await t.expectError(STAFF, `select public.sales_day_off_set($1, $2::date, true, 'выходной')`, 'forbidden', [alpha1, day]);
+    await t.as(OWNER, `select public.sales_day_off_set($1, $2::date, true, 'Санитарный день ТЦ')`, [alpha1, day]);
+    const [m1] = await t.as<{ v: { missing_days: string[]; days_off: { day: string }[] } }>(OWNER, `select public.sales_month($1, $2::date) as v`, [alpha1, today]);
+    expect(m1.v.missing_days).not.toContain(day);
+    expect(m1.v.days_off.map((x) => x.day)).toContain(day);
+    await t.as(OWNER, save, [alpha1, day, null, 500000, 0, 2, null, null]);
+    const left = await t.admin(`select 1 from public.sales_day_off where location_id = $1 and day = $2::date`, [alpha1, day]);
+    expect(left.length).toBe(0);
+  });
+
+  it('«Сегодня» франчайзи: сводка по своим точкам; у компании и менеджера продаж — нет', async () => {
+    const [o] = await t.as<{ v: { points: { id: string; missing: number }[] } }>(OWNER, `select public.today() as v`);
+    expect(o.v.points.length).toBeGreaterThanOrEqual(2);
+    const [f] = await t.as<{ v: { points: unknown[] } }>('founder@demo.example.com', `select public.today() as v`);
+    expect(f.v.points).toEqual([]);
+    const [s] = await t.as<{ v: { points: unknown[] } }>(STAFF, `select public.today() as v`);
+    expect(s.v.points).toEqual([]);
+  });
+});

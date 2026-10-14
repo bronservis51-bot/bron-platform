@@ -83,6 +83,7 @@ export const CONTRACT = {
   sale_delete: { args: ['sale', 'reason'], returns: 'void' },
   sale_save: { args: ['location', 'day', 'employee', 'revenue', 'returns', 'services', 'comment', 'expected_revision', 'card'], returns: 'single' },
   sales_control: { args: ['month'], returns: 'scalar' },
+  sales_day_off_set: { args: ['location', 'day', 'off', 'reason'], returns: 'scalar' },
   sales_for_report: { args: ['contract', 'period'], returns: 'scalar' },
   sales_month: { args: ['location', 'month'], returns: 'scalar' },
   shift_cancel: { args: ['shift'], returns: 'void' },

@@ -1,14 +1,14 @@
 // Ежедневная выручка: «Моя смена» — сотрудник вносит выручку и видит свой процент; «Отчёт точки» — владелец или управляющий
 // видит месяц по дням и сотрудникам, дозаполняет пропуски, чтобы месячный отчёт ушёл полностью заполненным.
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, CalendarDays, ChevronLeft, ChevronRight, CircleAlert, Coins, PencilLine, Percent, Store, Wallet } from 'lucide-react';
+import { Camera, Check, CalendarDays, ChevronLeft, ChevronRight, Coins, PencilLine, Percent, Wallet } from 'lucide-react';
 import { useSession } from '../../platform/session';
 import { addDays, formatPeriod } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
 import { formatMoneyShort, toBigInt } from '../../platform/money';
-import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, EmptyState, Field, Input, LinkButton, Money, MoneyInput, PageHeader, Progress, Select, Tabs, Textarea } from '../../ui';
+import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, EmptyState, Field, Input, LinkButton, Money, MoneyInput, PageHeader, Select, Tabs, Textarea } from '../../ui';
 import { useToast } from '../../ui/toast';
 import { useLocationsWith } from '../shared/lookups';
 import { earnings, myEarnings, pct, salesCommands, salesMonth, type MyEarnings, type SaleEntry, type SalesEmployee, type SalesMonth } from './api';
@@ -264,7 +264,9 @@ function CommissionCard({ m, onSaved }: { m: SalesMonth; onSaved: () => void }) 
   const sellers = m.employees.filter((e) => e.can_sell);
   const num = Number(rate.replace(',', '.'));
   return (
-    <Card title="Процент менеджеров продаж" icon={<Percent size={18} />} iconTone="dark">
+    <details className="card fold">
+      <summary className="card-body"><strong>{t('Процент менеджеров продаж')}</strong><span className="faint">{t('базовый')} {pct(m.rate_bp)}</span></summary>
+      <div className="card-body" style={{ paddingTop: 0 }}>
       <p className="faint" style={{ marginTop: 0 }}>{t('Процент считается от выручки за вычетом возвратов. Новый процент действует с выбранной даты; прошлые смены не пересчитываются.')}</p>
       <ul className="list">
         <li className="row between" style={{ padding: '8px 0' }}>
@@ -286,7 +288,71 @@ function CommissionCard({ m, onSaved }: { m: SalesMonth; onSaved: () => void }) 
         </div>
         <Field label="Комментарий" hint="Например: перевыполнение плана">{(id) => <Input id={id} value={note} onChange={(e) => setNote(e.target.value)} />}</Field>
       </ConfirmDialog>
-    </Card>
+      </div>
+    </details>
+  );
+}
+
+const OFF_REASONS = ['Выходной', 'Санитарный день ТЦ', 'Болезнь', 'Ремонт'];
+
+/** Кто скорее всего работал в этот день: тот же день недели раньше → чаще всех в месяце → первый продавец. */
+function suggestEmployee(m: SalesMonth, day: string) {
+  const wd = new Date(`${day}T12:00:00Z`).getUTCDay();
+  const sameWd = [...m.entries].filter((e) => e.day < day && new Date(`${e.day}T12:00:00Z`).getUTCDay() === wd).sort((a, b) => b.day.localeCompare(a.day))[0];
+  if (sameWd) return sameWd.employee_id;
+  const freq = new Map<string, number>();
+  for (const e of m.entries) freq.set(e.employee_id, (freq.get(e.employee_id) ?? 0) + 1);
+  const top = [...freq].sort((a, b) => b[1] - a[1])[0];
+  return top?.[0] ?? m.employees.find((e) => e.can_sell)?.id ?? m.employees[0]?.id ?? '';
+}
+
+/** Пустой день: «кто работал + сумма + оклейки» прямо в строке; Enter — сохранить и перейти к следующему пустому дню. */
+function QuickDay({ m, day, onSaved, register }: { m: SalesMonth; day: string; onSaved: (day: string) => void; register: (day: string, el: HTMLInputElement | null) => void }) {
+  const { t } = useT();
+  const toast = useToast();
+  const cur = m.location.currency;
+  const sellers = m.employees.filter((e) => e.can_sell || m.entries.some((x) => x.employee_id === e.id));
+  const [employee, setEmployee] = useState(() => suggestEmployee(m, day));
+  const [revenue, setRevenue] = useState('0');
+  const [services, setServices] = useState('');
+  const [offOpen, setOffOpen] = useState(false);
+  const save = useMutation({
+    mutationFn: () => salesCommands.save({ location: m.location.id, day, employee, revenue, returns: '0', services: Number(services || 0), comment: null, expected_revision: null }),
+    onSuccess: () => { toast(`${dayLabel(day)}: ${formatMoneyShort(revenue, cur, intlLocale())}`); onSaved(day); },
+  });
+  const off = useMutation({ mutationFn: (reason: string) => salesCommands.dayOff(m.location.id, day, true, reason), onSuccess: () => onSaved(day) });
+  const ok = toBigInt(revenue) > 0n && employee;
+  const submit = () => { if (ok && !save.isPending) save.mutate(); };
+  if (offOpen) {
+    return (
+      <div className="quick-off">
+        <span className="faint">{t('Почему точка не работала?')}</span>
+        <div className="quick-off-options">
+          {OFF_REASONS.map((r) => <button key={r} type="button" className="chip" disabled={off.isPending} onClick={() => off.mutate(r)}>{t(r)}</button>)}
+          <button type="button" className="link-btn dark" onClick={() => setOffOpen(false)}>{t('Отмена')}</button>
+        </div>
+        <ActionError error={off.error} />
+      </div>
+    );
+  }
+  return (
+    <div className="quick-day">
+      <div className="quick-fields">
+        {sellers.length > 1 && (
+          <Select aria-label={t('Кто работал')} value={employee} onChange={(e) => setEmployee(e.target.value)} className="quick-who">
+            {sellers.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </Select>
+        )}
+        <div className="quick-money">
+          <MoneyInput id={`q-${day}`} value={revenue} currency={cur} onChange={setRevenue} inputRef={(el) => register(day, el)} placeholder={t('Выручка')} onEnter={submit} />
+        </div>
+        <Input aria-label={t('Оклеек')} inputMode="numeric" placeholder={t('Оклеек')} className="quick-svc" value={services}
+          onChange={(e) => setServices(e.target.value.replace(/\D/g, ''))} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} />
+        <Button variant="primary" className="quick-save" aria-label={t('Сохранить')} disabled={!ok} loading={save.isPending} onClick={submit}><Check size={18} aria-hidden /></Button>
+      </div>
+      <button type="button" className="link-btn dark" onClick={() => setOffOpen(true)}>{t('Точка не работала')}</button>
+      <ActionError error={save.error} />
+    </div>
   );
 }
 
@@ -294,6 +360,7 @@ function LocationReportTab() {
   const { t } = useT();
   const { can } = useSession();
   const qc = useQueryClient();
+  const toast = useToast();
   const [params, setParams] = useSearchParams();
   const manage = useLocationsWith('sales.manage');
   const read = useLocationsWith('sales.read');
@@ -305,95 +372,135 @@ function LocationReportTab() {
   const max = monthOf(localToday());
   const location = params.get('location') ?? locs[0]?.id ?? '';
   const month = params.get('month') ?? max;
-  const set = (patch: Record<string, string>) => setParams((p) => { const n = new URLSearchParams(p); for (const [k, v] of Object.entries(patch)) n.set(k, v); return n; }, { replace: true });
+  const onlyMissing = params.get('only') === 'missing';
+  const set = (patch: Record<string, string | null>) => setParams((p) => {
+    const n = new URLSearchParams(p);
+    for (const [k, v] of Object.entries(patch)) { if (v === null) n.delete(k); else n.set(k, v); }
+    return n;
+  }, { replace: true });
   const q = useQuery({ queryKey: ['sales', 'month', location, month], enabled: Boolean(location), queryFn: () => salesMonth(location, month) });
   const [edit, setEdit] = useState<CellEdit | null>(null);
+  const inputs = useRef(new Map<string, HTMLInputElement>());
+  const [focusNext, setFocusNext] = useState<string | null>(null);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['sales'] }); void qc.invalidateQueries({ queryKey: ['today'] }); };
+  const undoOff = useMutation({ mutationFn: (day: string) => salesCommands.dayOff(location, day, false, null), onSuccess: () => { toast('Отметка снята'); refresh(); } });
+
+  // После сохранения — курсор в следующий пустой день
+  useEffect(() => {
+    if (!focusNext || !q.data) return;
+    const next = [...inputs.current.keys()].sort().find((d) => d > focusNext);
+    if (next) { const el = inputs.current.get(next); el?.focus(); el?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    setFocusNext(null);
+  }, [q.data, focusNext]);
 
   if (!manage.isLoading && !read.isLoading && !locs.length) return <Card><EmptyState title="Нет точек" text="Отчёт точки доступен франчайзи, управляющему и компании." /></Card>;
 
   return (
     <div className="stack">
-      <div className="row between" style={{ flexWrap: 'wrap', gap: 12 }}>
-        <Field label="Точка">{(id) => <Select id={id} value={location} onChange={(e) => set({ location: e.target.value })} style={{ minWidth: 240 }}>
-          {locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</Select>}</Field>
+      <div className="month-bar">
+        {locs.length > 1 && <Select aria-label={t('Точка')} value={location} onChange={(e) => set({ location: e.target.value })} className="month-loc">
+          {locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</Select>}
         <MonthNav month={month} onChange={(m) => set({ month: m })} max={max} />
       </div>
       <DataState query={q}>
         {(m) => {
           const cur = m.location.currency;
+          const opening = locs.find((l) => l.id === m.location.id)?.status !== 'active';
+          const editable = m.can_manage && !m.locked;
           const days: string[] = [];
           for (let d = monthOf(m.month); d <= m.today && d.startsWith(m.month.slice(0, 7)); d = addDays(d, 1)) days.push(d);
-          days.reverse();
-          const missing = new Set(m.missing_days);
-          const cell = new Map(m.entries.map((e) => [`${e.day}:${e.employee_id}`, e]));
-          const empTotals = new Map<string, bigint>();
+          const offs = new Map((m.days_off ?? []).map((o) => [o.day, o.reason]));
+          const missing = new Set(opening ? [] : m.missing_days.filter((d) => d < m.today));
+          const past = days.filter((d) => d < m.today).length;
+          const filled = past - missing.size;
+          const byDay = new Map<string, SaleEntry[]>();
+          for (const e of m.entries) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e]);
+          const names = new Map(m.employees.map((e) => [e.id, e.name.split(' ')[0]]));
+          const net = toBigInt(m.totals.revenue_minor) - toBigInt(m.totals.returns_minor);
+          const only = onlyMissing && missing.size > 0;
+          const shown = only ? days.filter((d) => missing.has(d)) : days;
+          inputs.current.clear();
           const empEarn = new Map<string, bigint>();
+          const empNet = new Map<string, bigint>();
           for (const e of m.entries) {
             const n = toBigInt(e.revenue_minor) - toBigInt(e.returns_minor);
-            empTotals.set(e.employee_id, (empTotals.get(e.employee_id) ?? 0n) + n);
+            empNet.set(e.employee_id, (empNet.get(e.employee_id) ?? 0n) + n);
             empEarn.set(e.employee_id, (empEarn.get(e.employee_id) ?? 0n) + earnings(n, e.rate_bp ?? m.rate_bp));
           }
-          const editable = m.can_manage && !m.locked;
-          const net = toBigInt(m.totals.revenue_minor) - toBigInt(m.totals.returns_minor);
-          const opening = locs.find((l) => l.id === m.location.id)?.status !== 'active';
-          const pastMissing = opening ? [] : m.missing_days.filter((d) => d < m.today);
           return (
             <>
-              {m.locked && <Alert tone="info" title="Месяц сдан">{t('Отчёт о выручке за этот месяц уже отправлен. Исправления — через финансы корректировкой.')}</Alert>}
-              {!m.locked && pastMissing.length > 0 && (
-                <Alert tone="warning" title={`${t('Не заполнено дней')}: ${pastMissing.length}`}>
-                  {pastMissing.slice(0, 10).map(dayLabel).join(', ')}{pastMissing.length > 10 ? '…' : ''}.{' '}
-                  {m.can_manage ? t('Нажмите на пустую ячейку, чтобы внести выручку, — тогда месячный отчёт уйдёт полностью заполненным.') : t('Дозаполнить может франчайзи или управляющий точки.')}
-                </Alert>
-              )}
-              <div className="money-hero">
-                <MoneyCard dark label="Выручка точки за месяц" icon={<Store size={16} />} value={formatMoneyShort(m.totals.revenue_minor, cur, intlLocale())}
-                  sub={m.totals.returns_minor ? `${t('возвраты')} ${formatMoneyShort(m.totals.returns_minor, cur, intlLocale())} · ${t('нетто')} ${formatMoneyShort(net, cur, intlLocale())}` : `${t('услуг')}: ${m.totals.services}`} />
-                <MoneyCard label="Заработок менеджеров продаж" icon={<Percent size={16} />} value={formatMoneyShort(m.totals.earnings_minor, cur, intlLocale())}
-                  sub={m.totals.revenue_minor ? `${t('по карте')} ${Math.round(Number(m.totals.card_minor) * 100 / Number(m.totals.revenue_minor))}% ${t('выручки')}` : `${t('базовый процент')} ${pct(m.rate_bp)}`} />
-                <div className="money-card">
-                  <div className="row between"><span className="l">{t('Заполненность')}</span><span className="icon-tile dark" style={{ width: 32, height: 32 }}><CircleAlert size={16} /></span></div>
-                  <div className="v">{m.totals.days_with_data} / {m.days_in_period}</div>
-                  <div style={{ marginTop: 8 }}><Progress value={m.totals.days_with_data} max={m.days_in_period} label="Дней с выручкой" /></div>
+              <section className="month-summary">
+                <div className="month-sum-top">
+                  <div>
+                    <div className="l">{t('Выручка за месяц')}</div>
+                    <div className="v">{formatMoneyShort(m.totals.revenue_minor, cur, intlLocale())}</div>
+                    <div className="s">{t('менеджерам')} {formatMoneyShort(m.totals.earnings_minor, cur, intlLocale())}{m.totals.revenue_minor ? ` · ${t('по карте')} ${Math.round(Number(m.totals.card_minor) * 100 / Number(m.totals.revenue_minor))}%` : ''}</div>
+                  </div>
+                  {!opening && <div className="month-ring" style={{ ['--p' as string]: past ? filled / past : 1 }} aria-label={`${t('Заполнено')} ${filled} / ${past}`}><span>{filled}<small>/{past}</small></span></div>}
                 </div>
-              </div>
-              <Card title="Выручка по дням" bodyless actions={can('royalty.report.submit') && <LinkButton to="/royalties" size="sm">{t('К месячному отчёту')}</LinkButton>}>
-                <div className="table-wrap"><table className="table sales-grid">
-                  <thead><tr><th>{t('День')}</th>{m.employees.map((e) => (
-                    <th key={e.id} className="r">{e.on_shift_since && <span className="on-shift-dot" title={t('Сейчас на смене')} />}{e.name}<div className="faint" style={{ fontWeight: 400 }}>{pct(e.rate_bp)}</div></th>
-                  ))}<th className="r">{t('Итого')}</th></tr></thead>
-                  <tbody>{days.map((d) => {
-                    const dayTotal = m.entries.filter((e) => e.day === d).reduce((s, e) => s + toBigInt(e.revenue_minor), 0n);
-                    const miss = !opening && missing.has(d) && d < m.today;
-                    return (
-                      <tr key={d} className={miss ? 'missing' : undefined}>
-                        <td style={{ whiteSpace: 'nowrap' }}>{dayLabel(d)}{d === m.today && <> <Badge tone="info" icon={false}>{t('сегодня')}</Badge></>}</td>
-                        {m.employees.map((e) => {
-                          const x = cell.get(`${d}:${e.id}`);
-                          const open = () => setEdit({ day: d, employee: e.id, entry: x });
-                          return (
-                            <td key={e.id} className={`${editable ? 'cell' : ''}${x ? '' : ' empty'}`} onClick={editable ? open : undefined}
-                              tabIndex={editable ? 0 : undefined} onKeyDown={editable ? (ev) => { if (ev.key === 'Enter') open(); } : undefined}
-                              aria-label={editable ? `${e.name}, ${dayLabel(d)}: ${x ? formatMoneyShort(x.revenue_minor, cur, intlLocale()) : t('не внесено')}` : undefined}>
-                              {x ? <>{formatMoneyShort(x.revenue_minor, cur, intlLocale())}{x.source === 'manager' && <span className="faint" title={t('Внёс управляющий')}> ✎</span>}
-                                {x.reduced_by_manager && <span className="reduced-mark" title={`${t('Уменьшено')}: ${x.comment ?? ''}`}> ↓</span>}
-                                {(x.files ?? 0) > 0 && <span className="faint" title={t('Фото кассового отчёта')}> <Camera size={12} aria-hidden /></span>}</>
-                                : miss ? (editable ? t('+ внести') : '—') : '·'}
-                            </td>
-                          );
-                        })}
-                        <td className="r"><strong>{dayTotal ? formatMoneyShort(dayTotal, cur, intlLocale()) : '—'}</strong></td>
-                      </tr>
-                    );
-                  })}</tbody>
-                  <tfoot>
-                    <tr><td>{t('Выручка нетто')}</td>{m.employees.map((e) => <td key={e.id} className="r"><Money minor={empTotals.get(e.id) ?? 0n} currency={cur} short /></td>)}<td className="r"><Money minor={net} currency={cur} short strong /></td></tr>
-                    <tr><td>{t('Заработок')}</td>{m.employees.map((e) => <td key={e.id} className="r"><strong><Money minor={empEarn.get(e.id) ?? 0n} currency={cur} short /></strong></td>)}<td className="r"><Money minor={m.totals.earnings_minor} currency={cur} short /></td></tr>
-                  </tfoot>
-                </table></div>
-              </Card>
-              {editable && <p className="faint">{t('✎ — смену внёс управляющий или франчайзи; ↓ — сумму уменьшили с причиной; фото — приложен кассовый отчёт.')}</p>}
+                {m.locked ? <div className="month-note">{t('Месяц сдан отчётом. Исправления — через финансы.')}</div>
+                  : missing.size > 0 ? (
+                    <div className="month-actions">
+                      <span>{t('Не внесено дней')}: <strong>{missing.size}</strong></span>
+                      {editable && <Button variant="silver" onClick={() => set({ only: only ? null : 'missing' })}>{only ? t('Показать все дни') : t('Заполнить пропуски')}</Button>}
+                    </div>
+                  ) : !opening && past > 0 ? (
+                    <div className="month-actions">
+                      <span><Check size={16} aria-hidden /> {t('Все дни заполнены')}</span>
+                      {can('royalty.report.submit') && <LinkButton to="/royalties" variant="silver">{t('Сдать отчёт за месяц')}</LinkButton>}
+                    </div>
+                  ) : null}
+              </section>
+
+              <ul className="day-list">
+                {shown.map((d) => {
+                  const list = byDay.get(d) ?? [];
+                  const off = offs.get(d);
+                  const miss = missing.has(d);
+                  const wd = new Date(`${d}T12:00:00Z`).getUTCDay();
+                  const total = list.reduce((s, e) => s + toBigInt(e.revenue_minor), 0n);
+                  return (
+                    <li key={d} className={`day-row${miss ? ' missing' : ''}${off ? ' off' : ''}${wd === 0 || wd === 6 ? ' weekend' : ''}`}>
+                      <div className="day-date">
+                        <span className="day-num">{Number(d.slice(8))}</span>
+                        <span className="day-wd">{new Date(`${d}T12:00:00Z`).toLocaleDateString(intlLocale(), { weekday: 'short', timeZone: 'UTC' })}</span>
+                      </div>
+                      <div className="day-body">
+                        {list.map((e) => (
+                          <button key={e.id} type="button" className="day-entry" disabled={!editable} onClick={() => setEdit({ day: d, employee: e.employee_id, entry: e })}>
+                            <span className="who">{names.get(e.employee_id) ?? '—'}</span>
+                            <span className="sum">{formatMoneyShort(e.revenue_minor, cur, intlLocale())}</span>
+                            {e.services_count > 0 && <span className="faint">{e.services_count} {t('окл.')}</span>}
+                            {e.source === 'manager' && <span className="faint" title={t('Внёс управляющий или франчайзи')}>✎</span>}
+                            {e.reduced_by_manager && <span className="reduced-mark" title={`${t('Уменьшено')}: ${e.comment ?? ''}`}>↓</span>}
+                            {(e.files ?? 0) > 0 && <Camera size={13} aria-hidden className="faint" />}
+                          </button>
+                        ))}
+                        {off && <div className="day-off">{t('Не работали')} · {off}{editable && <button type="button" className="link-btn dark" onClick={() => undoOff.mutate(d)}>{t('Отменить')}</button>}</div>}
+                        {!list.length && !off && editable && !opening && <QuickDay m={m} day={d} onSaved={(day) => { refresh(); setFocusNext(day); }} register={(day, el) => { if (el) inputs.current.set(day, el); }} />}
+                        {!list.length && !off && (!editable || opening) && <span className="faint">{d === m.today ? t('смена идёт') : '—'}</span>}
+                        {list.length > 0 && editable && m.employees.some((e) => e.can_sell && !list.some((x) => x.employee_id === e.id)) && (
+                          <button type="button" className="link-btn dark" onClick={() => setEdit({ day: d, employee: m.employees.find((e) => e.can_sell && !list.some((x) => x.employee_id === e.id))!.id })}>+ {t('ещё сотрудник')}</button>
+                        )}
+                      </div>
+                      {list.length > 1 && <div className="day-total">{formatMoneyShort(total, cur, intlLocale())}</div>}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <details className="card fold">
+                <summary className="card-body"><strong>{t('По сотрудникам')}</strong><span className="faint">{t('выручка и заработок за месяц')}</span></summary>
+                <ul className="list">
+                  {m.employees.filter((e) => empNet.has(e.id) || e.can_sell).map((e) => (
+                    <li key={e.id} className="list-item" style={{ cursor: 'default' }}>
+                      <div className="main-col"><div className="title">{e.on_shift_since && <span className="on-shift-dot" />}{e.name}</div><div className="meta">{pct(e.rate_bp)}</div></div>
+                      <div className="side"><strong>{formatMoneyShort(empEarn.get(e.id) ?? 0n, cur, intlLocale())}</strong><span className="faint">{t('с выручки')} {formatMoneyShort(empNet.get(e.id) ?? 0n, cur, intlLocale())}</span></div>
+                    </li>
+                  ))}
+                  <li className="list-item" style={{ cursor: 'default' }}><div className="main-col"><div className="title">{t('Итого нетто')}</div></div><div className="side"><strong>{formatMoneyShort(net, cur, intlLocale())}</strong></div></li>
+                </ul>
+              </details>
               {m.can_manage && <CommissionCard m={m} onSaved={refresh} />}
               <CellDialog edit={edit} m={m} onClose={() => setEdit(null)} onSaved={refresh} />
             </>
@@ -410,14 +517,16 @@ export function SalesPage() {
   const [params, setParams] = useSearchParams();
   const canMy = can('sales.enter');
   const canLoc = can('sales.manage') || can('sales.read');
-  const tab = (params.get('tab') === 'location' || !canMy) && canLoc ? 'location' : 'my';
+  // Франчайзи и управляющий по умолчанию открывают месяц точки, менеджер продаж — свою смену
+  const wanted = params.get('tab') ?? (can('sales.manage') ? 'location' : 'my');
+  const tab = (wanted === 'location' || !canMy) && canLoc ? 'location' : 'my';
   return (
     <>
-      <PageHeader title={t('Выручка')} sub="Смена, процент менеджера продаж и месячный отчёт точки" />
+      <PageHeader title={t('Выручка')} />
       {canMy && canLoc && (
         <div style={{ marginBottom: 16 }}>
-          <Tabs label="Разделы выручки" value={tab} onChange={(v) => setParams(v === 'my' ? {} : { tab: v }, { replace: true })}
-            tabs={[{ id: 'my', label: 'Моя смена' }, { id: 'location', label: 'Отчёт точки' }]} />
+          <Tabs label="Разделы выручки" value={tab} onChange={(v) => setParams({ tab: v }, { replace: true })}
+            tabs={[{ id: 'location', label: 'Месяц точки' }, { id: 'my', label: 'Моя смена' }]} />
         </div>
       )}
       {tab === 'my' ? <MyShiftTab /> : <LocationReportTab />}

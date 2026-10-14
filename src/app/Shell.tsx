@@ -2,12 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, Check, ChevronDown, LogOut, Menu, Search, User, Users, WifiOff, X } from 'lucide-react';
-import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useSession } from '../platform/session';
-import { from, rows, commandsInFlight, onInFlightChange } from '../platform/backend';
+import { from, rows } from '../platform/backend';
 import { config, quickLoginEnabled } from '../platform/config';
 import { useT } from '../platform/i18n';
-import { Button } from '../ui';
 import { GROUP_TITLE, NAV, primaryMobile, type NavItem } from './nav';
 import { BrandPattern, LogoFull, LogoMark } from '../ui/brand';
 import { flushQueue } from '../modules/support/offlineQueue';
@@ -102,22 +100,6 @@ function UserMenu() {
   );
 }
 
-function UpdateBanner() {
-  const { t } = useT();
-  const { needRefresh: [need], updateServiceWorker } = useRegisterSW({ immediate: true });
-  const [busy, setBusy] = useState(commandsInFlight());
-  useEffect(() => onInFlightChange(setBusy), []);
-  if (!need) return null;
-  return (
-    <div className="alert tone-info" role="status" style={{ margin: '12px 24px 0' }}>
-      <div className="alert-body">{t('Доступна новая версия. Черновики сохранятся.')}</div>
-      <Button size="sm" variant="primary" disabled={busy > 0} onClick={() => void updateServiceWorker(true)}>
-        {busy > 0 ? 'Дождитесь отправки…' : 'Обновить'}
-      </Button>
-    </div>
-  );
-}
-
 export function Shell() {
   const { can, isStaff, me } = useSession();
   const { t } = useT();
@@ -189,7 +171,7 @@ export function Shell() {
             <div className="alert-body">{t('Нет сети. Можно читать открытые экраны и писать черновики; отправка — после восстановления связи. Финансовые операции только онлайн.')}</div>
           </div>
         )}
-        <UpdateBanner />
+
         <main id="main" className="content" ref={mainRef} tabIndex={-1} style={{ outline: 'none' }}>
           <Outlet />
         </main>
