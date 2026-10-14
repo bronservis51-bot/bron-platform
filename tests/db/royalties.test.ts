@@ -6,7 +6,7 @@ let t: TestDb;
 const PARTNER = 'alpha.owner@demo.example.com';
 const F1 = 'finance1@demo.example.com';
 // Второй подписью (публикация начисления, подтверждение зачисления) служит руководитель компании: финансист один
-const F2 = 'founder@demo.example.com';
+const F2 = 'finance1@demo.example.com'; // финансист один (решение владельца 14.10.2026)
 let contract: string;
 let alpha: string;
 let loc1: string;
@@ -133,18 +133,24 @@ describe('AT-18 и AUTH-04: подтверждение оплаты', () => {
     expect(await outstanding(acc.accrualId)).toBe(700_000);
   });
 
-  it('зарегистрировавший зачисление не может его подтвердить', async () => {
+  it('один финансист подтверждает своё зачисление — операция записывается в журнал; при строгой политике запрещено', async () => {
     const [reg] = await t.as<{ r: { payment_id: string } }>(F1, `select public.payment_register($1, $2, 5000, 'RUB', current_date, 'BANK-T-SOD', null, $3) as r`, [alpha, contract, key('reg')]);
+    await t.admin(`update public.operator set sod_policy = 'strict'`);
     await t.expectError(F1, `select public.payment_confirm($1)`, 'forbidden', [reg.r.payment_id]);
-    await t.as(F2, `select public.payment_confirm($1)`, [reg.r.payment_id]);
+    await t.admin(`update public.operator set sod_policy = 'allow_with_log'`);
+    await t.as(F1, `select public.payment_confirm($1)`, [reg.r.payment_id]);
+    const log = await t.admin(`select 1 from public.audit_event where action = 'sod_override' and entity_id = $1`, [reg.r.payment_id]);
+    expect(log.length).toBe(1);
   });
 
-  it('утвердивший отчёт не публикует начисление сам', async () => {
+  it('при строгой политике утвердивший отчёт не публикует начисление сам', async () => {
+    await t.admin(`update public.operator set sod_policy = 'strict'`);
     const [r] = await t.as<{ id: string }>(PARTNER, `select id from public.report_save_draft($1, '2024-09-01', $2::jsonb)`,
       [contract, JSON.stringify([{ location_id: loc1, gross_minor: 1000 }, { location_id: loc2, gross_minor: 0, zero_reason: 'x' }])]);
     await t.as(PARTNER, `select public.report_submit($1, $2)`, [r.id, key('sub')]);
     await t.as(F1, `select public.report_approve($1)`, [r.id]);
     await t.expectError(F1, `select public.accrual_publish($1, $2)`, 'forbidden', [r.id, key('pub')]);
+    await t.admin(`update public.operator set sod_policy = 'allow_with_log'`);
   });
 
   it('партнёр не может утвердить отчёт или подтвердить оплату', async () => {

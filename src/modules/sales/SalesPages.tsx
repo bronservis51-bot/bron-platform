@@ -13,6 +13,7 @@ import { useToast } from '../../ui/toast';
 import { useLocationsWith } from '../shared/lookups';
 import { earnings, myEarnings, pct, salesCommands, salesMonth, type MyEarnings, type SaleEntry, type SalesEmployee, type SalesMonth } from './api';
 import { ShiftPanel } from './ShiftPanel';
+import { LocationNotes } from '../shared/LocationNotes';
 
 const monthOf = (iso: string) => `${iso.slice(0, 7)}-01`;
 function shiftMonth(month: string, n: number) {
@@ -436,7 +437,7 @@ function LocationReportTab() {
                     <div className="v">{formatMoneyShort(m.totals.revenue_minor, cur, intlLocale())}</div>
                     <div className="s">{t('менеджерам')} {formatMoneyShort(m.totals.earnings_minor, cur, intlLocale())}{m.totals.revenue_minor ? ` · ${t('по карте')} ${Math.round(Number(m.totals.card_minor) * 100 / Number(m.totals.revenue_minor))}%` : ''}</div>
                   </div>
-                  {!opening && <div className="month-ring" style={{ ['--p' as string]: past ? filled / past : 1 }} aria-label={`${t('Заполнено')} ${filled} / ${past}`}><span>{filled}<small>/{past}</small></span></div>}
+                  {!opening && <div className={`month-ring${past && filled === past ? ' full' : ''}`} style={{ ['--p' as string]: past ? filled / past : 1 }} aria-label={`${t('Заполнено')} ${filled} / ${past}`}><span>{filled}<small>/{past}</small></span></div>}
                 </div>
                 {m.locked ? <div className="month-note">{t('Месяц сдан отчётом. Исправления — через финансы.')}</div>
                   : missing.size > 0 ? (
@@ -446,7 +447,7 @@ function LocationReportTab() {
                     </div>
                   ) : !opening && past > 0 ? (
                     <div className="month-actions">
-                      <span><Check size={16} aria-hidden /> {t('Все дни заполнены')}</span>
+                      <span>🎉 {t('Все дни заполнены')}</span>
                       {can('royalty.report.submit') && <LinkButton to="/royalties" variant="silver">{t('Сдать отчёт за месяц')}</LinkButton>}
                     </div>
                   ) : null}
@@ -489,6 +490,7 @@ function LocationReportTab() {
                 })}
               </ul>
 
+              <Card><LocationNotes key={m.location.id} locationId={m.location.id} compact /></Card>
               <details className="card fold">
                 <summary className="card-body"><strong>{t('По сотрудникам')}</strong><span className="faint">{t('выручка и заработок за месяц')}</span></summary>
                 <ul className="list">

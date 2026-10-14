@@ -1,4 +1,5 @@
 // Партнёры и точки (SUP-01): единая карточка партнёра — точки, договоры, проекты, обращения, закупки, отчётность.
+import { LocationNotes } from '../shared/LocationNotes';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -88,6 +89,20 @@ function Section({ title, link, children }: { title: string; link?: string; chil
   return <Card title={title} actions={link && <Link to={link}>Все</Link>} bodyless>{children}</Card>;
 }
 
+function PartnerNotes({ locations }: { locations: Location[] }) {
+  const [sel, setSel] = useState(locations.find((l) => l.status === 'active')?.id ?? locations[0].id);
+  return (
+    <Card>
+      {locations.length > 1 && (
+        <div className="chips" role="group" aria-label="Точка" style={{ marginBottom: 10 }}>
+          {locations.map((l) => <button key={l.id} type="button" className="chip" aria-pressed={sel === l.id} onClick={() => setSel(l.id)}>{l.name}</button>)}
+        </div>
+      )}
+      <LocationNotes key={sel} locationId={sel} />
+    </Card>
+  );
+}
+
 export function PartnerPage() {
   const { id = '' } = useParams();
   const { can, isStaff } = useSession();
@@ -120,6 +135,7 @@ export function PartnerPage() {
               <Section title="Точки">
                 <ul className="list">{(locs.data ?? []).map((l) => <LocationRow key={l.id} l={l} />)}</ul>
               </Section>
+              {(locs.data ?? []).length > 0 && <PartnerNotes locations={locs.data!} />}
               {can('opening.read') && Boolean(openings.data?.length) && (
                 <Section title="Открытия" link="/openings">
                   <ul className="list">

@@ -13,6 +13,7 @@ import type { GeometryCollection, Topology } from 'topojson-specification';
 import worldData from 'world-atlas/countries-50m.json';
 import { AlertTriangle, Clock, Globe2, Headset, Minus, Plus, Rocket, Store, Users, Wallet, X } from 'lucide-react';
 import { command } from '../../platform/backend';
+import { LocationNotes } from '../shared/LocationNotes';
 import { formatDate } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
 import { formatMoneyShort } from '../../platform/money';
@@ -92,6 +93,7 @@ function Details({ l, onClose }: { l: MapLocation; onClose: () => void }) {
           {Number(l.debt.overdue_minor) > 0 && <strong style={{ color: 'var(--danger)' }}> · {t('просрочено')} {money(l.debt.overdue_minor, l.debt.currency ?? l.currency)}</strong>}</li>}
         {l.control && l.control.film_phones_60d > 0 && <li><Store size={15} aria-hidden /> {t('Плёнка → оклейки за 60 дн.')}: ~{l.control.services_est_60d} / {l.control.film_phones_60d}</li>}
       </ul>
+      <LocationNotes key={l.id} locationId={l.id} compact />
       <div className="map-links">
         {l.status !== 'opening' && <Link className="btn btn-sm" to={`/sales?tab=location&location=${l.id}`}>{t('Выручка по дням')}</Link>}
         {l.partner_id && <Link className="btn btn-sm" to={`/partners/${l.partner_id}`}>{t('Карточка франчайзи')}</Link>}

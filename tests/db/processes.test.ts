@@ -5,7 +5,7 @@ import { createTestDb, type TestDb } from './harness';
 let t: TestDb;
 const FM = 'fm@demo.example.com';
 // Руководителя направления нет (решение владельца 13.10.2026): разрешения, шаблоны и публикацию статей ведёт руководитель компании
-const HEAD = 'founder@demo.example.com';
+const HEAD = 'founder@demo.example.com'; // руководитель: только настройка шаблона, без согласований
 const ALPHA = 'alpha.owner@demo.example.com';
 const SUPPLY = 'supply@demo.example.com';
 let seq = 0;
@@ -30,7 +30,7 @@ describe('открытие точки', () => {
   });
 
   it('AT-03: без критических задач разрешение на открытие не выдаётся', async () => {
-    const detail = await t.expectError(HEAD, `select public.opening_approve($1)`, 'transition-not-allowed', [project]);
+    const detail = await t.expectError(FM, `select public.opening_approve($1)`, 'transition-not-allowed', [project]);
     expect(detail).toMatch(/Прикрепить подписанный договор/);
     const blockers = await t.as(ALPHA, `select * from public.opening_blockers($1)`, [project]);
     expect(blockers.length).toBeGreaterThan(5);
@@ -84,8 +84,8 @@ describe('открытие точки', () => {
     const steps = await t.admin<{ id: string; step_key: string; queue_role: string; requires_evidence: boolean }>(
       `select id, step_key, queue_role, requires_evidence from public.task where subject_id = $1 order by stage_order, step_order`, [project]);
     const who: Record<string, string> = { partner_owner: ALPHA, franchise_manager: FM, finance: 'finance1@demo.example.com',
-      procurement: SUPPLY, warehouse: SUPPLY, founder: HEAD, hr_admin: 'hr@demo.example.com',
-      designer: 'designer@demo.example.com', direction_head: HEAD };
+      procurement: SUPPLY, warehouse: SUPPLY, founder: FM, hr_admin: 'hr@demo.example.com',
+      designer: 'designer@demo.example.com', direction_head: FM };
     for (const s of steps) {
       if (['opening_permit', 'opening_fact', 'stab_7', 'stab_14', 'stab_30'].includes(s.step_key)) continue;
       if (s.requires_evidence) {
@@ -97,7 +97,7 @@ describe('открытие точки', () => {
       }
       await t.as(who[s.queue_role], `select public.task_complete($1, 'Выполнено')`, [s.id]);
     }
-    await t.as(HEAD, `select public.opening_approve($1, 'Готово')`, [project]);
+    await t.as(FM, `select public.opening_approve($1, 'Готово')`, [project]);
     await t.as(FM, `select public.opening_mark_opened($1, current_date)`, [project]);
     const [loc] = await t.admin<{ status: string }>(`select l.status from public.location l join public.opening_project p on p.location_id = l.id where p.id = $1`, [project]);
     expect(loc.status).toBe('active');
@@ -142,6 +142,9 @@ describe('задачи и передача дел', () => {
     // авторство сохранено
     const authored = await t.admin(`select 1 from public.task_event where actor_id = $1`, [fmId]);
     expect(authored.length).toBeGreaterThan(0);
+    // Вернуть менеджера франшизы для следующих проверок (он теперь выдаёт разрешения и публикует статьи)
+    await t.admin(`update public.app_user set status = 'active' where id = $1`, [fmId]);
+    await t.admin(`update public.role_assignment set revoked_at = null, revoke_reason = null where user_id = $1`, [fmId]);
   });
 });
 
@@ -157,7 +160,7 @@ describe('поддержка', () => {
     // повтор отправки офлайн-черновика с тем же ключом возвращает то же обращение (PWA-03)
     const [again] = await t.as<{ id: string }>(ALPHA, `select * from public.ticket_create($1, 'equipment', 'stopped', 'Точка стоит', 'Нет питания', 'Не включается', 'X1', '{}'::jsonb, 'k-1')`, [loc]);
     expect(again.id).toBe(tk.id);
-    const head = await t.admin(`select 1 from public.notification n join auth.users u on u.id = n.user_id where u.email = $1 and n.kind = 'ticket.stopped'`, [HEAD]);
+    const head = await t.admin(`select 1 from public.notification n join auth.users u on u.id = n.user_id where u.email = $1 and n.kind = 'ticket.stopped'`, [FM]);
     expect(head.length).toBeGreaterThan(0);
   });
 
@@ -315,7 +318,7 @@ describe('база знаний', () => {
     await t.as('editor@demo.example.com', `select public.article_submit($1)`, [a.r.article_id]);
     const rev = await one(`select id from public.article_revision where article_id = $1 and status = 'in_review'`, [a.r.article_id]);
     await t.expectError('editor@demo.example.com', `select public.article_publish($1, false)`, 'forbidden', [rev.id]);
-    await t.as(HEAD, `select public.article_publish($1, false)`, [rev.id]);
+    await t.as(FM, `select public.article_publish($1, false)`, [rev.id]);
   });
 
   it('новая обязательная версия создаёт ознакомления аудитории; косметическая — нет', async () => {
@@ -324,13 +327,13 @@ describe('база знаний', () => {
     await t.as('editor@demo.example.com', `select public.article_save_draft($1, 'Стандарт оклейки смартфона', 'Исправлена опечатка', (select body from public.article_revision where id = (select published_revision_id from public.article where id = $1)) || ' ')`, [art.id]);
     await t.as('editor@demo.example.com', `select public.article_submit($1)`, [art.id]);
     let rev = await one(`select id from public.article_revision where article_id = $1 and status = 'in_review'`, [art.id]);
-    await t.as(HEAD, `select public.article_publish($1, false)`, [rev.id]);
+    await t.as(FM, `select public.article_publish($1, false)`, [rev.id]);
     const [{ n: cosmetic }] = await t.admin<{ n: string }>(`select count(*) as n from public.ack_assignment where article_id = $1`, [art.id]);
     expect(cosmetic).toBe(before);
     await t.as('editor@demo.example.com', `select public.article_save_draft($1, 'Стандарт оклейки смартфона', 'Новый шаг', (select body from public.article_revision where id = (select published_revision_id from public.article where id = $1)) || E'\n\nНовый обязательный шаг.')`, [art.id]);
     await t.as('editor@demo.example.com', `select public.article_submit($1)`, [art.id]);
     rev = await one(`select id from public.article_revision where article_id = $1 and status = 'in_review'`, [art.id]);
-    const [res] = await t.as<{ r: { ack_assigned: number } }>(HEAD, `select public.article_publish($1, true) as r`, [rev.id]);
+    const [res] = await t.as<{ r: { ack_assigned: number } }>(FM, `select public.article_publish($1, true) as r`, [rev.id]);
     expect(res.r.ack_assigned).toBeGreaterThan(5);
     await t.as(ALPHA, `select public.article_acknowledge($1)`, [rev.id]);
     const [mine] = await t.as<{ completed_at: string | null }>(ALPHA, `select completed_at from public.ack_assignment where revision_id = $1 and user_id = auth.uid()`, [rev.id]);
@@ -356,7 +359,7 @@ describe('база знаний', () => {
     await t.as('editor@demo.example.com', `select public.article_save_draft($1, 'Гарантия на оклейку гаджета: как оформить обращение', null, 'Обновлённый текст регламента гарантии для проверки экспорта.')`, [art.id]);
     await t.as('editor@demo.example.com', `select public.article_submit($1)`, [art.id]);
     const rev = await one(`select id from public.article_revision where article_id = $1 and status = 'in_review'`, [art.id]);
-    await t.as(HEAD, `select public.article_publish($1, false)`, [rev.id]);
+    await t.as(FM, `select public.article_publish($1, false)`, [rev.id]);
     await t.as(SUPPLY, `select public.run_integration_jobs()`);
     const [failed] = await t.admin<{ export_status: string }>(`select export_status from public.article where id = $1`, [art.id]);
     expect(failed.export_status).toBe('failed');

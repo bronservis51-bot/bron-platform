@@ -247,3 +247,13 @@ Object.assign(tr2, {
   'Почему точка не работала?': 'Nokta neden çalışmadı?', 'Выходной': 'Tatil günü', 'Санитарный день ТЦ': 'AVM temizlik günü', 'Болезнь': 'Hastalık', 'Ремонт': 'Tadilat',
   'Кто работал': 'Kim çalıştı', 'Оклеек': 'Kaplama', 'Точка не работала': 'Nokta çalışmadı', 'Отметка снята': 'İşaret kaldırıldı',
 });
+Object.assign(tr2, {
+  'Заметки': 'Notlar', 'Добавить': 'Ekle', 'Напомнить': 'Hatırlat', 'Нет': 'Yok', 'Завтра': 'Yarın', 'Через 3 дня': '3 gün sonra', 'Через неделю': 'Bir hafta sonra',
+  'Дата напоминания': 'Hatırlatma tarihi', 'Текст заметки': 'Not metni', 'Только для сотрудников компании (франчайзи не увидит)': 'Yalnızca şirket çalışanları için (franchise sahibi görmez)',
+  'Например: у партнёра проблема с арендой, решит к 20-му — после этого позвонить': 'Örneğin: ortağın kira sorunu var, 20sine kadar çözecek — sonra aranacak',
+  'Пока пусто. Запишите, что важно помнить об этой точке.': 'Henüz boş. Bu nokta hakkında hatırlanması gerekeni yazın.', 'Вы': 'Siz', 'Видят только сотрудники компании': 'Yalnızca şirket çalışanları görür',
+  'для своих': 'şirket içi', 'Вернуть': 'Geri al', 'Сделано': 'Yapıldı', 'Удалить заметку': 'Notu sil', 'Отметить сделанным': 'Yapıldı olarak işaretle',
+  'Свободные задачи в очереди: {{n}}': 'Kuyrukta boş görev: {{n}}', 'Возьмите, чтобы не просрочить': 'Gecikmemesi için alın', 'Прочитать инструкции: {{n}}': 'Okunacak talimatlar: {{n}}',
+  'Открыть карту': 'Haritayı aç', 'Прошлый месяц побит!': 'Geçen ay geçildi!', 'Цель: побить прошлый месяц': 'Hedef: geçen ayı geçmek', 'Осталось': 'Kalan',
+  'Сверх прошлого месяца': 'Geçen ayın üzerinde', 'Рекорд смены': 'Vardiya rekoru', 'Заработок этого месяца против всего прошлого месяца': 'Bu ayın kazancı, geçen ayın tamamına karşı',
+});

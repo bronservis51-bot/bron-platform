@@ -2,13 +2,13 @@
 // возвраты, число оклеек, фото кассового отчёта). Сразу видно, сколько заработано за смену и за месяц.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Camera, CheckCircle2, Clock, Play, Square, Wallet } from 'lucide-react';
 import { intlLocale, useT } from '../../platform/i18n';
 import { formatMoneyShort, toBigInt } from '../../platform/money';
 import { ActionError, Alert, Button, ConfirmDialog, Field, Input, MoneyInput, Select, Textarea } from '../../ui';
 import { useToast } from '../../ui/toast';
-import { earnings, pct, salesCommands, type MyEarnings, type OpenShift } from './api';
+import { earnings, myEarnings, pct, salesCommands, type MyEarnings, type OpenShift } from './api';
 
 function since(iso: string) {
   const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -77,6 +77,13 @@ export function ShiftPanel({ data, onChanged, compact }: { data: MyEarnings; onC
   const cancelM = useMutation({ mutationFn: (id: string) => salesCommands.cancelShift(id), onSuccess: () => { toast('Смена отменена'); refresh(); } });
   const shift = data.open_shift;
   const tot = data.totals[0];
+  // Игровая цель: заработать больше, чем за весь прошлый месяц; рекорд смены этого месяца
+  const prevMonth = (() => { const d = new Date(`${data.month}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 1, 1); return d.toISOString().slice(0, 10); })();
+  const prev = useQuery({ queryKey: ['sales', 'my', prevMonth], queryFn: () => myEarnings(prevMonth), staleTime: 10 * 60_000 });
+  const prevEarn = Number(prev.data?.totals.find((x) => x.currency === (tot?.currency ?? data.locations[0]?.currency))?.earnings_minor ?? 0);
+  const nowEarn = Number(tot?.earnings_minor ?? 0);
+  const best = data.days.reduce((m, x) => Math.max(m, Number(x.revenue_minor)), 0);
+  const goal = prevEarn > 0 ? { pctDone: Math.round((nowEarn * 100) / prevEarn), left: prevEarn - nowEarn, best: best || null } : null;
   const cur = tot?.currency ?? data.locations[0]?.currency ?? 'RUB';
   const l = data.locations.find((x) => x.id === loc) ?? data.locations[0];
   if (!l && !shift) return null;
@@ -103,6 +110,19 @@ export function ShiftPanel({ data, onChanged, compact }: { data: MyEarnings; onC
           <span className="s">{t('смен')}: {tot?.shifts ?? 0}</span>
         </Link>
       </div>
+      {goal && (
+        <div className="goal" title={t('Заработок этого месяца против всего прошлого месяца')}>
+          <div className="goal-head">
+            <span>{goal.pctDone >= 100 ? `🏆 ${t('Прошлый месяц побит!')}` : `🎯 ${t('Цель: побить прошлый месяц')}`}</span>
+            <strong>{Math.min(goal.pctDone, 999)}%</strong>
+          </div>
+          <div className="goal-bar"><span style={{ width: `${Math.min(100, goal.pctDone)}%` }} className={goal.pctDone >= 100 ? 'won' : ''} /></div>
+          <div className="goal-foot">
+            {goal.pctDone < 100 ? <>{t('Осталось')} {formatMoneyShort(goal.left, cur, intlLocale())}</> : <>{t('Сверх прошлого месяца')} +{formatMoneyShort(-goal.left, cur, intlLocale())}</>}
+            {goal.best && <span>⭐ {t('Рекорд смены')}: {formatMoneyShort(goal.best, cur, intlLocale())}</span>}
+          </div>
+        </div>
+      )}
       <div className="shift-actions">
         {shift ? (
           <>

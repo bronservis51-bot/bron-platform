@@ -729,3 +729,38 @@ a.today-earn:hover { filter: brightness(1.08); }
   .login-brand { padding: 18px 16px 14px; }
   .login-brand h1, .login-brand p, .login-brand > .faint, .login-brand .brand-pattern { display: none; }
 }
+
+/* Цель месяца (игровой элемент) */
+.goal { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgb(255 255 255 / 7%); }
+.goal-head { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-s); font-weight: 600; }
+.goal-bar { height: 10px; border-radius: 5px; background: rgb(255 255 255 / 12%); overflow: hidden; margin: 8px 0 6px; }
+.goal-bar span { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, #c1c2c4, #fefefe); transition: width .6s ease; }
+.goal-bar span.won { background: linear-gradient(90deg, #f5c451, #ffe08a); }
+.goal-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #a6a7ad; }
+/* Галочка напоминания в «Нужно сделать» */
+.todo-check { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 2px solid var(--border-strong); background: transparent; color: transparent; display: grid; place-items: center; cursor: pointer; }
+.todo-check:hover { border-color: #2e9b4f; color: #2e9b4f; }
+.todo-item.checked { opacity: .5; }
+.todo-item.checked .todo-title { text-decoration: line-through; }
+.todo-item.checked .todo-check { background: #2e9b4f; border-color: #2e9b4f; color: #fff; }
+.due-late { color: var(--danger); font-weight: 600; }
+/* Заметки */
+.notes-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.notes-head h3 { margin: 0; font-size: 15px; display: inline-flex; gap: 6px; align-items: center; }
+.note-form { display: grid; gap: 8px; margin-bottom: 12px; }
+.note-options { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.note-date { width: auto; min-height: 36px; padding: 4px 8px; }
+.note-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.note { padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border-left: 3px solid #f5c451; }
+.note.due { border-left-color: var(--danger); }
+.note.done { opacity: .55; border-left-color: #2e9b4f; }
+.note-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.note-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--text-3); }
+.note-meta span { display: inline-flex; gap: 4px; align-items: center; }
+.note-remind { color: var(--text-2); font-weight: 600; }
+.note-act { border: 0; background: none; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; padding: 2px 4px; }
+.note-act:hover { color: var(--text); }
+.map-details .notes { margin: 12px 0; padding-top: 12px; border-top: 1px solid var(--border); }
+.month-ring.full { background: conic-gradient(#f5c451 360deg, #f5c451 0); }
+.note-private { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-s); color: var(--text-2); }
+.note-private input { margin-top: 3px; flex: none; }

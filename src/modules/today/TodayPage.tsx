@@ -2,10 +2,10 @@
 // (смена — менеджеру продаж, точки — франчайзи и управляющему, сеть — руководству) и единый список «Нужно сделать».
 // Действия, которые нужны не всем (заказ, инструкции, обращение), живут в своих разделах меню.
 import { useState, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import {
-  AlertTriangle, CalendarX, Check, ChevronRight, ClipboardList, GraduationCap, Headset, Inbox, Landmark, Map as MapIcon, PackageCheck, PencilLine, Play, Rocket, Sparkles, Stamp,
+  AlertTriangle, Bell, CalendarX, Check, ChevronRight, ClipboardList, GraduationCap, Headset, Inbox, Landmark, Map as MapIcon, PackageCheck, Play, Rocket, Sparkles, Stamp,
 } from 'lucide-react';
 import { command } from '../../platform/backend';
 import { useScopeFilter, useSession } from '../../platform/session';
@@ -30,21 +30,25 @@ interface Today {
   balances: { accrual_id: string; number: string; period: string; currency: string; outstanding_minor: string; due_on: string; overdue: boolean }[];
   sales?: { my: MyEarnings | null; missing: { location_id: string; location_name: string; days: number }[] };
   points?: Point[];
+  reminders?: { id: string; location_id: string; location_name: string; body: string; remind_on: string }[];
   supply?: { new_items: { id: string; name: string }[]; waiting: { id: string; name: string; available: boolean; expected_on: string | null }[] };
 }
 interface NetworkPoint { status: string; currency: string; revenue_minor: number; missing_days: number; stopped_tickets: number; control: { risk: number } | null; debt: { overdue_minor: number } | null }
 
 /** Строка списка «Нужно сделать»: всё, что требует действия, в одном месте и по важности. */
-interface Item { key: string; rank: number; icon: ReactNode; tone?: 'danger' | 'warning'; title: string; meta?: ReactNode; side?: ReactNode; to: string }
+interface Item { key: string; rank: number; icon: ReactNode; tone?: 'danger' | 'warning'; title: string; meta?: ReactNode; side?: ReactNode; to: string; checkId?: string }
 
-function collect(d: Today, t: (s: string, v?: Record<string, unknown>) => string): Item[] {
+function collect(d: Today, t: (s: string, v?: Record<string, unknown>) => string, staff: boolean): Item[] {
   const items: Item[] = [];
   const now = Date.now();
+  for (const r of d.reminders ?? []) items.push({ key: `r${r.id}`, rank: 1, icon: <Bell size={18} />, title: r.body, meta: r.location_name, to: staff ? '/map' : `/sales?tab=location&location=${r.location_id}`, checkId: r.id,
+    side: r.remind_on < new Date().toISOString().slice(0, 10) ? <span className="due-late">{formatDate(r.remind_on, intlLocale())}</span> : undefined });
   const dup = new Set(d.balances.map((b) => `/royalties/accruals/${b.accrual_id}`));
   for (const c of d.critical.filter((c) => !c.link || !dup.has(c.link))) items.push({ key: `c${c.id}`, rank: 0, tone: 'danger', icon: <AlertTriangle size={18} />, title: c.title, meta: c.body, to: c.link ?? '/notifications' });
   for (const a of d.approvals) items.push({ key: `a${a.kind}${a.id}`, rank: 1, icon: <Stamp size={18} />, title: a.title, meta: <span className="mono">{a.number}</span>,
     side: a.amount_minor && a.currency ? <Money minor={a.amount_minor} currency={a.currency} short /> : undefined, to: a.link });
-  for (const b of d.balances) items.push({ key: `b${b.accrual_id}`, rank: b.overdue ? 0 : 3, tone: b.overdue ? 'danger' : undefined, icon: <Landmark size={18} />,
+  // Платит франчайзи; компании просроченный долг виден на карте и в контроле, а не как «дело»
+  for (const b of staff ? [] : d.balances) items.push({ key: `b${b.accrual_id}`, rank: b.overdue ? 0 : 3, tone: b.overdue ? 'danger' : undefined, icon: <Landmark size={18} />,
     title: t('Оплатить роялти за {{p}}', { p: formatPeriod(b.period, intlLocale()).toLowerCase() }),
     meta: b.overdue ? t('Срок прошёл') : `${t('до')} ${formatDate(b.due_on, intlLocale())}`, side: <Money minor={b.outstanding_minor} currency={b.currency} short />, to: `/royalties/accruals/${b.accrual_id}` });
   for (const x of d.my_tasks) {
@@ -57,12 +61,13 @@ function collect(d: Today, t: (s: string, v?: Record<string, unknown>) => string
     items.push({ key: `k${k.id}`, rank: k.urgency === 'stopped' ? 0 : mine ? 1 : 3, tone: k.urgency === 'stopped' ? 'danger' : undefined, icon: <Headset size={18} />,
       title: mine ? `${t('Ответьте')}: ${k.subject}` : k.subject, meta: k.location_name, side: !['resolved', 'closed'].includes(k.status) ? <Due at={k.resolve_due} /> : undefined, to: `/support/${k.id}` });
   }
-  for (const x of d.queue_tasks) items.push({ key: `q${x.id}`, rank: 4, icon: <Inbox size={18} />, title: x.title, meta: `${t('Можно взять')} · ${x.queue_name}`, side: <Due at={x.due_at} />, to: `/tasks/${x.id}` });
+  if (d.queue_tasks.length === 1) { const x = d.queue_tasks[0]; items.push({ key: `q${x.id}`, rank: 4, icon: <Inbox size={18} />, title: x.title, meta: `${t('Можно взять')} · ${x.queue_name}`, side: <Due at={x.due_at} />, to: `/tasks/${x.id}` }); }
+  else if (d.queue_tasks.length > 1) items.push({ key: 'queue', rank: 4, icon: <Inbox size={18} />, title: t('Свободные задачи в очереди: {{n}}', { n: d.queue_tasks.length }), meta: t('Возьмите, чтобы не просрочить'), to: '/tasks' });
   for (const o of d.openings.filter((o) => o.date_at_risk || o.overdue_tasks > 0 || o.critical_open > 0))
     items.push({ key: `o${o.id}`, rank: 2, tone: 'warning', icon: <Rocket size={18} />, title: `${t('Открытие под угрозой')}: ${o.location_name}`,
       meta: `${t('План')} ${formatDate(o.planned_open_on, intlLocale())} · ${o.done_tasks}/${o.total_tasks}`, to: `/openings/${o.id}` });
-  for (const a of d.acks) items.push({ key: `k${a.id}`, rank: 5, icon: <GraduationCap size={18} />, title: `${t('Прочитать')}: ${a.title}`, meta: `${t('до')} ${formatDate(a.due_on, intlLocale())}`, to: `/kb/articles/${a.article_id}` });
-  for (const x of d.drafts) items.push({ key: `d${x.kind}${x.id}`, rank: 6, icon: <PencilLine size={18} />, title: `${t('Черновик')}: ${x.title}`, to: x.link });
+  if (d.acks.length === 1) { const a = d.acks[0]; items.push({ key: `k${a.id}`, rank: 5, icon: <GraduationCap size={18} />, title: `${t('Прочитать')}: ${a.title}`, meta: `${t('до')} ${formatDate(a.due_on, intlLocale())}`, to: `/kb/articles/${a.article_id}` }); }
+  else if (d.acks.length > 1) items.push({ key: 'acks', rank: 5, icon: <GraduationCap size={18} />, title: t('Прочитать инструкции: {{n}}', { n: d.acks.length }), meta: `${t('до')} ${formatDate(d.acks[0].due_on, intlLocale())}`, to: '/learning' });
   for (const w of d.supply?.waiting.filter((w) => w.available) ?? [])
     items.push({ key: `s${w.id}`, rank: 3, icon: <PackageCheck size={18} />, title: `${t('Поступило')}: ${w.name}`, meta: t('Вы ждали этот товар'), to: '/catalog' });
   if (d.supply?.new_items.length)
@@ -72,7 +77,14 @@ function collect(d: Today, t: (s: string, v?: Record<string, unknown>) => string
 
 function TodoList({ items }: { items: Item[] }) {
   const { t } = useT();
+  const qc = useQueryClient();
   const [all, setAll] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const done = useMutation({
+    mutationFn: (id: string) => command('location_note_done', { note: id, done: true }),
+    onMutate: (id) => setChecked((s) => new Set(s).add(id)),
+    onSuccess: () => setTimeout(() => void qc.invalidateQueries({ queryKey: ['today'] }), 700),
+  });
   const shown = all ? items : items.slice(0, 6);
   if (!items.length) {
     return (
@@ -88,8 +100,10 @@ function TodoList({ items }: { items: Item[] }) {
       <ul className="todo-list">
         {shown.map((i) => (
           <li key={i.key}>
-            <Link to={i.to} className={`todo-item${i.tone ? ` ${i.tone}` : ''}`}>
-              <span className="todo-icon">{i.icon}</span>
+            <Link to={i.to} className={`todo-item${i.tone ? ` ${i.tone}` : ''}${i.checkId && checked.has(i.checkId) ? ' checked' : ''}`}>
+              {i.checkId
+                ? <button type="button" className="todo-check" aria-label={t('Отметить сделанным')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); done.mutate(i.checkId!); }}><Check size={16} aria-hidden /></button>
+                : <span className="todo-icon">{i.icon}</span>}
               <span className="todo-main"><span className="todo-title">{i.title}</span>{i.meta && <span className="todo-meta">{i.meta}</span>}</span>
               {i.side && <span className="todo-side">{i.side}</span>}
               <ChevronRight size={16} className="todo-chevron" aria-hidden />
@@ -151,7 +165,7 @@ function NetworkCard() {
   const attention = list.filter((l) => l.stopped_tickets > 0 || (l.status === 'active' && l.missing_days > 2) || (l.control?.risk ?? 0) >= 3 || Number(l.debt?.overdue_minor ?? 0) > 0).length;
   return (
     <Link to="/map" className="points-card network-card">
-      <div className="row between"><h2 className="section-title" style={{ margin: 0, color: 'inherit' }}>{t('Сеть')}</h2><span className="pill-link"><MapIcon size={14} aria-hidden /> {t('Карта')}</span></div>
+      <div className="row between"><h2 className="section-title" style={{ margin: 0, color: 'inherit' }}>{t('Сеть')}</h2><span className="pill-link"><MapIcon size={14} aria-hidden /> {t('Открыть карту')}</span></div>
       {q.isLoading ? <div className="faint" style={{ marginTop: 10 }}>{t('Загрузка…')}</div> : (
         <div className="network-kpis">
           <div><span className="v">{list.length}</span><span className="l">{t('точек')}</span></div>
@@ -195,7 +209,7 @@ export function TodayPage() {
               {seller && (!points.length || my?.open_shift) && <ShiftPanel data={my!} onChanged={() => void q.refetch()} compact />}
               {points.length > 0 && <PointsCard points={points} canSell={seller && !my?.open_shift} />}
               {isStaff && can('metrics.read') && <NetworkCard />}
-              <TodoList items={collect(d, t)} />
+              <TodoList items={collect(d, t, isStaff)} />
             </div>
           );
         }}

@@ -89,3 +89,33 @@ describe('карта сети', () => {
     await t.expectError('staff.north@demo.example.com', `select public.network_map()`, 'forbidden');
   });
 });
+
+describe('руководитель и заметки к точкам', () => {
+  it('у руководителя нет согласований и проверок — только просмотр', async () => {
+    const [r] = await t.as<{ v: { approvals: unknown[]; queue_tasks: unknown[] } }>('founder@demo.example.com', `select public.today() as v`);
+    expect(r.v.approvals).toEqual([]);
+    const perms = await t.admin<{ permission: string }>(`select permission from public.role_permission where role = 'founder'`);
+    expect(perms.map((p) => p.permission)).not.toEqual(expect.arrayContaining(['order.approve']));
+    expect(perms.map((p) => p.permission)).toEqual(expect.arrayContaining(['metrics.read', 'sales.read', 'royalty.read']));
+  });
+
+  it('менеджер франшизы пишет внутреннюю заметку с напоминанием; франчайзи её не видит, свою — видит', async () => {
+    const [{ id: loc }] = await t.admin<{ id: string }>(`select id from public.location where code = 'BETA-1'`);
+    const [n] = await t.as<{ id: string; internal: boolean }>('fm@demo.example.com',
+      `select * from public.location_note_add($1, 'Позвонить после акции', current_date, true)`, [loc]);
+    expect(n.internal).toBe(true);
+    const [td] = await t.as<{ v: { reminders: { id: string }[] } }>('fm@demo.example.com', `select public.today() as v`);
+    expect(td.v.reminders.map((x) => x.id)).toContain(n.id);
+    const seen = await t.as<{ id: string }>('beta.owner@demo.example.com', `select id from public.location_note where location_id = $1`, [loc]);
+    expect(seen.map((x) => x.id)).not.toContain(n.id);
+    const [own] = await t.as<{ id: string; internal: boolean }>('beta.owner@demo.example.com',
+      `select * from public.location_note_add($1, 'Привезли новый плоттер', null, true)`, [loc]);
+    expect(own.internal).toBe(false);
+    expect((await t.as('founder@demo.example.com', `select 1 from public.location_note where id = $1`, [own.id])).length).toBe(1);
+    await t.expectError('alpha.owner@demo.example.com', `select * from public.location_note_add($1, 'x', null, false)`, 'not-found', [loc]);
+    await t.expectError('beta.owner@demo.example.com', `select public.location_note_delete($1)`, 'not-found', [n.id]);
+    await t.as('fm@demo.example.com', `select * from public.location_note_done($1, true)`, [n.id]);
+    const [td2] = await t.as<{ v: { reminders: { id: string }[] } }>('fm@demo.example.com', `select public.today() as v`);
+    expect(td2.v.reminders.map((x) => x.id)).not.toContain(n.id);
+  });
+});
