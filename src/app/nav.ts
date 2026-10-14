@@ -1,5 +1,5 @@
 // Навигация по разрешённым модулям (UX-03): сервер всё равно проверяет доступ, меню лишь не показывает недоступное.
-import { Map as MapIcon, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShieldAlert, ShoppingCart, Store, Rocket, Truck, Wallet } from 'lucide-react';
+import { Map as MapIcon, TrendingUp, BookOpen, ClipboardList, GraduationCap, Headset, Home, Landmark, Package, Settings, ShieldAlert, ShoppingCart, Store, Rocket, Truck, Wallet } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -21,6 +21,7 @@ export const NAV: NavItem[] = [
   { to: '/orders', label: 'Заказы', icon: Package, group: 'work', visible: (can) => can('order.read') || can('order.create') },
   { to: '/partners', label: 'Партнёры и точки', icon: Store, group: 'franchise', visible: (can) => can('org.read') },
   { to: '/openings', label: 'Открытия', icon: Rocket, group: 'franchise', visible: (can) => can('opening.read') },
+  { to: '/network-sales', label: 'Выручка сети', icon: TrendingUp, group: 'franchise', visible: (can, isStaff) => isStaff && can('sales.read') },
   { to: '/control', label: 'Контроль выручки', icon: ShieldAlert, group: 'franchise', visible: (can, isStaff) => isStaff && can('sales.read') },
   { to: '/royalties', label: 'Роялти', icon: Landmark, group: 'franchise', visible: (can) => can('royalty.read') },
   { to: '/kb', label: 'База знаний', icon: BookOpen, group: 'knowledge', visible: (can) => can('kb.read') },
@@ -38,7 +39,7 @@ export const GROUP_TITLE: Record<NavItem['group'], string> = {
 export function primaryMobile(items: NavItem[], can: (p: string) => boolean): NavItem[] {
   const by = (to: string) => items.find((i) => i.to === to);
   const order = can('access.manage') && can('metrics.read')
-    ? ['/', '/map', '/control', '/royalties']
+    ? ['/', '/network-sales', '/map', '/control']
     : can('opening.approve') && can('metrics.read')
     ? ['/', '/map', '/openings', '/support']
     : can('royalty.publish')

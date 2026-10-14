@@ -764,3 +764,53 @@ a.today-earn:hover { filter: brightness(1.08); }
 .month-ring.full { background: conic-gradient(#f5c451 360deg, #f5c451 0); }
 .note-private { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-s); color: var(--text-2); }
 .note-private input { margin-top: 3px; flex: none; }
+
+/* Выручка сети */
+.net-filters { display: grid; gap: 10px; }
+.net-selects { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.net-selects .select { flex: 1 1 150px; max-width: 220px; }
+.net-search { flex: 1 1 180px; position: relative; display: flex; align-items: center; }
+.net-search svg { position: absolute; left: 12px; color: var(--text-3); pointer-events: none; }
+.net-search .input { padding-left: 36px; }
+.net-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.net-kpi { display: grid; text-align: left; gap: 2px; padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); color: var(--text); font: inherit; }
+button.net-kpi { cursor: pointer; }
+.net-kpi.on { background: var(--metal-dark); color: #fefefe; border-color: transparent; }
+.net-kpi .l { font-size: var(--fs-s); color: var(--text-2); font-weight: 600; }
+.net-kpi.on .l, .net-kpi.on .s { color: #b9babf; }
+.net-kpi .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.net-kpi .s { font-size: 12px; color: var(--text-3); }
+.delta { font-weight: 700; font-variant-numeric: tabular-nums; }
+.delta.up { color: #2e9b4f; }
+.delta.down { color: var(--danger); }
+.net-kpi.on .delta.up { color: #7ee2a0; }
+.net-kpi.on .delta.down { color: #ff8a8c; }
+.bars-card { padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.bars-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: var(--fs-s); margin-bottom: 8px; }
+.bars { width: 100%; height: auto; display: block; }
+.bars .bar { fill: var(--text-3); }
+.bars .bar.on { fill: var(--text); }
+.bars-base { stroke: var(--border); stroke-width: 1; }
+.bars-tick { fill: var(--text-3); font-size: 11px; text-anchor: middle; }
+.net-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.net-row { width: 100%; display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.net-row:disabled { cursor: default; }
+.net-row:not(:disabled):hover { background: var(--surface-2); }
+.net-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.net-title { font-weight: 700; }
+.net-sub { font-size: var(--fs-s); color: var(--text-3); }
+.net-miss { color: var(--danger); }
+.net-bar { height: 4px; border-radius: 2px; background: var(--surface-3); margin-top: 6px; overflow: hidden; }
+.net-bar span { display: block; height: 100%; border-radius: 2px; background: var(--text-2); }
+.net-side { display: grid; justify-items: end; gap: 2px; flex: none; }
+.net-sum { font-weight: 700; font-variant-numeric: tabular-nums; }
+.net-kpi.on { box-shadow: 0 0 0 2px var(--text); }
+@media (max-width: 760px) {
+  .net-kpis { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(70%, 1fr); overflow-x: auto; margin: 0 -16px; padding: 2px 16px 6px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .net-kpis::-webkit-scrollbar { display: none; }
+  .net-kpi { scroll-snap-align: start; }
+  .net-kpi .v { font-size: 22px; }
+}
+.bars { height: 140px; }
+.bars-axis { position: relative; height: 16px; margin-top: 4px; }
+.bars-axis span { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--text-3); }

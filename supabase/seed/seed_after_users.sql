@@ -132,6 +132,9 @@ $md$## Плоттер режет со смещением
     perform pg_temp.act_as('fm@demo.example.com');
     perform public.article_update_meta(v_art, null, null, r.audience, null, pg_temp.uid('editor@demo.example.com'),
       array['демо'], current_date + 180, r.required);
+    -- Обязательно только тем, кого касается: стандарт оклейки — кто оклеивает, регламент отчёта — франчайзи
+    update public.article set ack_roles = case r.slug when 'standart-okleyki' then '{location_staff,partner_staff,location_manager,partner_owner}'::text[]
+      when 'reglament-otcheta' then '{partner_owner}'::text[] end where id = v_art;
     select id into v_rev from public.article_revision where article_id = v_art and status = 'in_review';
     perform public.article_publish(v_rev, r.required, current_date + 180, 'Публикация демонстрационной базы');
   end loop;

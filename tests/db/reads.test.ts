@@ -119,3 +119,24 @@ describe('руководитель и заметки к точкам', () => {
     expect(td2.v.reminders.map((x) => x.id)).not.toContain(n.id);
   });
 });
+
+describe('обязательные инструкции только тем, кого касаются', () => {
+  it('стандарт оклейки — сотрудникам точек и франчайзи; регламент отчёта — франчайзи; офису — ничего', async () => {
+    const acks = async (email: string) => (await t.as<{ v: { acks: { title: string }[] } }>(email, `select public.today() as v`))[0].v.acks.map((a) => a.title);
+    for (const office of ['founder@demo.example.com', 'finance1@demo.example.com', 'supply@demo.example.com', 'fm@demo.example.com']) expect(await acks(office)).toEqual([]);
+    expect(await acks('staff.north@demo.example.com')).toEqual(['Стандарт оклейки смартфона']);
+    expect(await acks('alpha.staff@demo.example.com')).toEqual(['Стандарт оклейки смартфона']);
+    expect((await acks('beta.owner@demo.example.com')).sort()).toEqual(['Регламент сдачи отчёта о выручке', 'Стандарт оклейки смартфона']);
+  });
+
+  it('«Выручка сети»: все точки с городом, страной и днями; франчайзи — нет доступа', async () => {
+    const [r] = await t.as<{ v: { locations: { code: string; city: string; country_name: string; kind: string; revenue_minor: number; daily: [string, number][] }[] } }>(
+      'founder@demo.example.com', `select public.network_sales(current_date) as v`);
+    const a1 = r.v.locations.find((l) => l.code === 'ALPHA-1')!;
+    expect(a1.city).toBe('Волгоград');
+    expect(a1.country_name).toBeTruthy();
+    expect(a1.daily.length).toBeGreaterThan(0);
+    expect(new Set(r.v.locations.map((l) => l.kind))).toEqual(new Set(['own', 'franchise']));
+    await t.expectError('alpha.owner@demo.example.com', `select public.network_sales(current_date)`, 'forbidden');
+  });
+});

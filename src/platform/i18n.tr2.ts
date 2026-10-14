@@ -257,3 +257,11 @@ Object.assign(tr2, {
   'Открыть карту': 'Haritayı aç', 'Прошлый месяц побит!': 'Geçen ay geçildi!', 'Цель: побить прошлый месяц': 'Hedef: geçen ayı geçmek', 'Осталось': 'Kalan',
   'Сверх прошлого месяца': 'Geçen ayın üzerinde', 'Рекорд смены': 'Vardiya rekoru', 'Заработок этого месяца против всего прошлого месяца': 'Bu ayın kazancı, geçen ayın tamamına karşı',
 });
+Object.assign(tr2, {
+  'Выручка сети': 'Ağ cirosu', 'Владение': 'Sahiplik', 'Все страны': 'Tüm ülkeler', 'Все города': 'Tüm şehirler', 'Франчайзи': 'Franchise sahibi', 'Все франчайзи': 'Tüm franchise sahipleri',
+  'Поиск точки': 'Nokta ara', 'Точка или город': 'Nokta veya şehir', 'Сбросить': 'Sıfırla', 'Нет точек по фильтру': 'Filtreye uyan nokta yok',
+  'к прошлому месяцу на то же число': 'geçen ayın aynı gününe göre', 'Точек': 'Nokta', 'собств.': 'kendi', 'франш.': 'franchise', 'По дням': 'Günlere göre',
+  'Группировка': 'Gruplama', 'Точки': 'Noktalar', 'Города': 'Şehirler', 'Страны': 'Ülkeler', 'Собственные точки': 'Kendi noktalar', 'компания': 'şirket', 'франчайзи': 'franchise',
+  'Сравнение — с прошлым месяцем на то же число. Нажмите на точку, чтобы открыть её выручку по дням.': 'Karşılaştırma geçen ayın aynı günüyle yapılır. Günlük ciro için noktaya tıklayın.',
+  'Страна': 'Ülke', 'Город': 'Şehir',
+});

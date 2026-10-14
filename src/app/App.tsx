@@ -52,6 +52,7 @@ const ArticleReviewPage = page(kb, 'ArticleReviewPage');
 const LearningPage = page(kb, 'LearningPage');
 const SalesPage = page(() => import('../modules/sales/SalesPages'), 'SalesPage');
 const NetworkMapPage = page(() => import('../modules/metrics/NetworkMapPage'), 'NetworkMapPage');
+const NetworkSalesPage = page(() => import('../modules/sales/NetworkSalesPage'), 'NetworkSalesPage');
 const ControlPage = page(() => import('../modules/sales/ControlPage'), 'ControlPage');
 const SupplyPage = page(() => import('../modules/procurement/SupplyPage'), 'SupplyPage');
 const OverviewPage = page(() => import('../modules/metrics/OverviewPage'), 'OverviewPage');
@@ -98,6 +99,7 @@ const router = createHashRouter([
       { path: 'catalog', element: <CatalogPage /> },
       { path: 'sales', element: <SalesPage /> },
       { path: 'control', element: <ControlPage /> },
+      { path: 'network-sales', element: <NetworkSalesPage /> },
       { path: 'map', element: <NetworkMapPage /> },
       { path: 'supply', element: <SupplyPage /> },
       { path: 'orders', element: <OrdersPage /> },
