@@ -37,7 +37,7 @@ describe('продажи на точке', () => {
     expect(found[0].v.length).toBe(1);
     await t.expectError('gamma.owner@demo.example.com', `select public.pos_client_search($1, '')`, 'forbidden', [alpha1]);
     await t.expectError('founder@demo.example.com', `select public.pos_client_search($1, '')`, 'forbidden', [alpha1]);
-    const [d] = await t.as<{ v: { sales: { client_phone: string | null }[] } }>('founder@demo.example.com', `select public.pos_day($1, current_date) as v`, [alpha1]);
+    const [d] = await t.as<{ v: { sales: { client_phone: string | null }[] } }>('founder@demo.example.com', `select public.pos_day($1, null::date) as v`, [alpha1]);
     expect(d.v.sales.length).toBeGreaterThan(0);
     expect(d.v.sales.every((s) => s.client_phone === null)).toBe(true);
     expect((await t.as('founder@demo.example.com', `select 1 from public.pos_client`)).length).toBe(0);
@@ -45,7 +45,7 @@ describe('продажи на точке', () => {
   });
 
   it('возврат: в тот же день — сам сотрудник; клиенты «вернуть» — давно не были', async () => {
-    const [d] = await t.as<{ v: { sales: { id: string }[] } }>(DINA, `select public.pos_day($1, current_date) as v`, [alpha1]);
+    const [d] = await t.as<{ v: { sales: { id: string }[] } }>(DINA, `select public.pos_day($1, null::date) as v`, [alpha1]);
     await t.expectError(DINA, `select * from public.pos_sale_return($1, '')`, 'validation', [d.v.sales[0].id]);
     const [r] = await t.as<{ status: string }>(DINA, `select * from public.pos_sale_return($1, 'Пузыри, переклеили бесплатно')`, [d.v.sales[0].id]);
     expect(r.status).toBe('returned');
