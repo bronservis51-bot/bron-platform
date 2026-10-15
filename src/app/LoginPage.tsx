@@ -42,8 +42,8 @@ function QuickLogin({ onError }: { onError: (msg: string) => void }) {
     } catch (e) {
       onError(!navigator.onLine ? 'Нет сети. Вход возможен только онлайн.'
         : (e as Error).message === 'timeout' || (e as Error).message?.includes('fetch')
-          ? 'Сервер демо-стенда не отвечает. Он находится за рубежом, и у некоторых операторов связи работает с перебоями: попробуйте другую сеть (Wi‑Fi или мобильный интернет) или включите VPN.'
-          : 'Не удалось войти под этой ролью. Попробуйте ещё раз или обратитесь к администратору стенда.');
+          ? 'Сервер не отвечает. Проверьте интернет и попробуйте ещё раз.'
+          : 'Не удалось войти. Попробуйте ещё раз.');
     } finally {
       clearTimeout(hint);
       setBusy(null);
@@ -54,7 +54,7 @@ function QuickLogin({ onError }: { onError: (msg: string) => void }) {
     <div>
       <h2 style={{ fontSize: 'var(--fs-l)', marginBottom: 4 }}>Выберите роль</h2>
       <p className="muted" style={{ marginBottom: 16 }}>Нажмите на должность, чтобы войти. Сменить роль можно в профиле.</p>
-      {busy && slow && <div className="slow-hint" role="status">Соединяемся с сервером… Демо-стенд размещён за рубежом, первый вход может занять до 20 секунд.</div>}
+      {busy && slow && <div className="slow-hint" role="status">Входим… Ещё несколько секунд.</div>}
       {GROUPS.map((g) => (
         <section key={g.id} style={{ marginBottom: 20 }}>
           <div className="row" style={{ marginBottom: 8, color: 'var(--text-2)', fontWeight: 600 }}><g.icon size={16} aria-hidden />{g.title}</div>

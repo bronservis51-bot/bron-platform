@@ -7,7 +7,7 @@ import { useSession } from '../../platform/session';
 import { addDays, formatDate, formatDateTime, isoDate } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
 import { toAppError } from '../../platform/backend';
-import { ActionError, Alert, Badge, Button, Card, Chips, ConfirmDialog, DataState, DemoBadge, Due, EmptyState, Field, Input, KV, LinkButton,
+import { ActionError, Alert, Badge, Button, Card, Chips, ConfirmDialog, DataState, Due, EmptyState, Field, Input, KV, LinkButton,
   PageHeader, Select, Textarea, Timeline } from '../../ui';
 import { OPENING_STATUS, st, TASK_STATUS } from '../../ui/status';
 import { useToast } from '../../ui/toast';
@@ -76,7 +76,6 @@ export function NewOpeningPage() {
   const toast = useToast();
   const partners = usePartners();
   const locs = useLocations();
-  const { can } = useSession();
   const [partner, setPartner] = useState('');
   const [mode, setMode] = useState<'existing' | 'new'>('new');
   const [location, setLocation] = useState('');
@@ -85,20 +84,13 @@ export function NewOpeningPage() {
   const [address, setAddress] = useState('');
   const [format, setFormat] = useState('');
   const [planned, setPlanned] = useState(addDays(isoDate(), 45));
-  const [deal, setDeal] = useState(`DEMO-DEAL-${Math.floor(1000 + Math.random() * 8999)}`);
   const create = useMutation({
     mutationFn: () => openingCommands.create({ partner, location: mode === 'existing' ? location : null, location_name: mode === 'new' ? name : null,
       city: mode === 'new' ? city : null, address: address || null, format: format || null, planned_open: planned, contract: null }),
     onSuccess: (id) => { toast('Проект открытия создан по шаблону'); navigate(`/openings/${id}`); },
   });
-  const crm = useMutation({
-    mutationFn: () => openingCommands.demoCrm(partner, deal, name, city, planned),
-    onSuccess: (r) => {
-      if (r.project_id) { toast(r.inbox === 'duplicate' ? 'Событие уже получено — открыт существующий проект' : 'Проект создан событием CRM (демо)'); navigate(`/openings/${r.project_id}`); }
-    },
-  });
-  const err = toAppError(create.error ?? crm.error);
-  const fieldErr = (f: string) => (create.error || crm.error) && err.field === f ? err.detail : null;
+  const err = toAppError(create.error);
+  const fieldErr = (f: string) => create.error && err.field === f ? err.detail : null;
   const candidates = (locs.data ?? []).filter((l) => l.partner_id === partner && ['planned', 'opening'].includes(l.status));
   function submit(e: FormEvent) { e.preventDefault(); create.mutate(); }
   return (
@@ -137,18 +129,11 @@ export function NewOpeningPage() {
               {(id) => <Input id={id} type="date" min={isoDate()} value={planned} onChange={(e) => setPlanned(e.target.value)} />}
             </Field>
           </div>
-          <ActionError error={create.error ?? crm.error} />
+          <ActionError error={create.error} />
           <div className="form-actions">
             <Button type="submit" variant="primary" loading={create.isPending} disabled={!partner || !planned || (mode === 'new' ? !name || !city : !location)}>Создать проект</Button>
           </div>
         </Card>
-        {can('integration.operate') || can('opening.manage') ? (
-          <Card title={<h2 className="row">Событие из CRM <DemoBadge /></h2>}>
-            <p className="muted">Демонстрация OPEN-01: проект создаётся событием «сделка выиграна». Повтор события с тем же ID сделки не создаёт второй проект.</p>
-            <Field label="ID сделки в CRM">{(id) => <Input id={id} value={deal} onChange={(e) => setDeal(e.target.value)} />}</Field>
-            <Button loading={crm.isPending} disabled={!partner || !name || !city || !deal} onClick={() => crm.mutate()}>Отправить событие CRM (демо)</Button>
-          </Card>
-        ) : null}
       </form>
     </>
   );

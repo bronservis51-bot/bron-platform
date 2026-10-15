@@ -9,7 +9,6 @@ import { ErrorState, Skeleton } from '../ui';
 import { Shell } from './Shell';
 import { LoginPage, SetupPage } from './LoginPage';
 import { TodayPage } from '../modules/today/TodayPage';
-import { LogoMark } from '../ui/brand';
 
 // Модули загружаются по требованию: первый экран не тянет код роялти, редактора статей и т. п. (NFR-01, LCP)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,10 +136,9 @@ const router = createHashRouter([
 
 function BootScreen() {
   return (
-    <div className="boot-screen" role="status" aria-live="polite">
-      <LogoMark height={64} />
+    <div className="boot-screen" role="status" aria-label="Загрузка">
+      <img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />
       <div className="boot-bar"><span /></div>
-      <div className="faint">Загружаем рабочий кабинет…</div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
   AlertTriangle, Bell, CalendarX, Check, Contact, ChevronRight, ClipboardList, GraduationCap, Headset, Inbox, Landmark, Map as MapIcon, PackageCheck, Play, Rocket, Sparkles, Stamp,
 } from 'lucide-react';
 import { command } from '../../platform/backend';
-import { useScopeFilter, useSession } from '../../platform/session';
+import { snapshot, useScopeFilter, useSession } from '../../platform/session';
 import { formatDate, formatPeriod } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
 import { formatMoneyShort } from '../../platform/money';
@@ -188,9 +188,17 @@ export function TodayPage() {
   const { me, can, isStaff } = useSession();
   const { partnerId, locationId } = useScopeFilter();
   const { t } = useT();
+  // Последний ответ показывается сразу при открытии, свежий подменяет его без мигания
+  const cacheKey = `today.${me?.user.id}.${partnerId}.${locationId}`;
   const q = useQuery({
     queryKey: ['today', partnerId, locationId],
-    queryFn: () => command<Today>('today', { partner: partnerId, location: locationId }),
+    queryFn: async () => {
+      const d = await command<Today>('today', { partner: partnerId, location: locationId });
+      snapshot.set(cacheKey, d);
+      return d;
+    },
+    initialData: () => snapshot.get<Today>(cacheKey) ?? undefined,
+    initialDataUpdatedAt: 0,
     refetchInterval: 120_000,
   });
   const first = me?.user.full_name.split(' ')[0];

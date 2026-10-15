@@ -1,11 +1,11 @@
 // Сессия и профиль пользователя. Разрешения в клиенте — только подсказка интерфейсу; сервер проверяет каждый запрос (AUTH-01).
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { command, from, rows } from './backend';
+import { command, from, rows, toAppError } from './backend';
 import { setCurrencyMinorUnits } from './money';
 import { clearUserData } from './offline';
 import { setLocale, type Locale } from './i18n';
-import { setRememberDevice, supabase } from './supabase';
+import { setRememberDevice, snapshot, supabase } from './supabase';
 
 export interface Assignment {
   id: string;
@@ -38,6 +38,9 @@ interface SessionState {
   reload: () => Promise<void>;
 }
 
+/** Снимок последних ответов для мгновенного старта экранов (хранится рядом с сессией, стирается при выходе). */
+export { snapshot };
+
 const Ctx = createContext<SessionState | null>(null);
 const CONTEXT_KEY = (userId: string) => `bron.context.${userId}`;
 
@@ -47,13 +50,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [contextId, setContextId] = useState<string | null>(null);
 
-  const loadMe = useCallback(async () => {
-    const data = await command<Me>('me');
-    if (!data?.user) {
-      setMe(null);
-      setStatus('signed-out');
-      return;
-    }
+  const applyMe = useCallback((data: Me) => {
     setMe(data);
     setLocale(data.user.locale === 'tr' ? 'tr' : 'ru');
     try {
@@ -62,8 +59,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setContextId(null);
     }
     setStatus('signed-in');
-    rows<{ code: string; minor_unit: number }>(from('currency').select('code, minor_unit')).then(setCurrencyMinorUnits, () => undefined);
   }, []);
+
+  const loadMe = useCallback(async () => {
+    const data = await command<Me>('me');
+    if (!data?.user) {
+      snapshot.clear();
+      setMe(null);
+      setStatus('signed-out');
+      return;
+    }
+    snapshot.set('me', data);
+    applyMe(data);
+    rows<{ code: string; minor_unit: number }>(from('currency').select('code, minor_unit')).then((c) => {
+      snapshot.set('currency', c);
+      setCurrencyMinorUnits(c);
+    }, () => undefined);
+  }, [applyMe]);
 
   useEffect(() => {
     if (!supabase) {
@@ -73,11 +85,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let active = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      if (data.session) loadMe().catch(() => setStatus('signed-out'));
-      else setStatus('signed-out');
+      if (!data.session) {
+        snapshot.clear();
+        setStatus('signed-out');
+        return;
+      }
+      // Повторный вход: кабинет открывается сразу по сохранённому профилю, а профиль с сервера обновляет его в фоне
+      const cached = snapshot.get<Me>('me');
+      const fresh = cached?.user?.id === data.session.user.id;
+      if (fresh) {
+        const cur = snapshot.get<{ code: string; minor_unit: number }[]>('currency');
+        if (cur) setCurrencyMinorUnits(cur);
+        applyMe(cached);
+      }
+      loadMe().catch((e) => {
+        // Без сети остаёмся в кабинете с сохранённым профилем; выход — только если сессия недействительна
+        if (!fresh || toAppError(e).code === 'unauthenticated') setStatus('signed-out');
+      });
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        snapshot.clear();
         setMe(null);
         setStatus('signed-out');
       }
@@ -86,7 +114,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, [loadMe]);
+  }, [loadMe, applyMe]);
 
   const signIn = useCallback(
     async (email: string, password: string, remember: boolean) => {
@@ -95,7 +123,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
       qc.clear();
-      // Медленная сеть (сервер демо-стенда далеко): первый экран грузится параллельно с профилем, а не после него
+      // Первый экран грузится параллельно с профилем, а не после него
       void qc.prefetchQuery({ queryKey: ['today', null, null], queryFn: () => command('today', { partner: null, location: null }) });
       await loadMe();
     },
@@ -106,6 +134,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const uid = me?.user.id;
     if (uid) await clearUserData(uid); // черновики и очередь пользователя удаляются (PWA-05)
     qc.clear();
+    snapshot.clear();
     await supabase?.auth.signOut();
     setRememberDevice(false);
     setMe(null);

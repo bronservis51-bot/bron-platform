@@ -9,7 +9,7 @@ import { addDays, formatDate, formatDateTime, formatPeriod, isoDate, monthStart 
 import { intlLocale, useT } from '../../platform/i18n';
 import { drafts } from '../../platform/offline';
 import { formatMoney, minorToDecimal, parseMoney, sumMinor, toBigInt } from '../../platform/money';
-import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, KV, Money, MoneyInput, PageHeader, Select,
+import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, EmptyState, Field, Input, KV, Money, MoneyInput, PageHeader, Select,
   Tabs, Textarea, Timeline } from '../../ui';
 import { PAYMENT_STATUS, REPORT_STATUS, st, VERIFICATION } from '../../ui/status';
 import { FileAttach, FileList } from '../../ui/files';
@@ -171,7 +171,7 @@ function NewReportDialog({ onClose }: { onClose: () => void }) {
   return (
     <ConfirmDialog open title="Отчёт о выручке" confirmLabel="Открыть отчёт" onClose={onClose} onConfirm={() => create.mutate()} busy={create.isPending} error={create.error}>
       <Field label="Договор" required>{(id) => (
-        <Select id={id} value={contract} onChange={(e) => setContract(e.target.value)}>{(cs.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.number}{c.is_test ? ' (тестовый)' : ''}</option>)}</Select>
+        <Select id={id} value={contract} onChange={(e) => setContract(e.target.value)}>{(cs.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.number}</option>)}</Select>
       )}</Field>
       <Field label="Период" required hint="Если отчёт за период уже начат — откроется он же">{(id) => (
         <Select id={id} value={period} onChange={(e) => setPeriod(e.target.value)}>{periods.map((p) => <option key={p} value={p}>{formatPeriod(p, intlLocale())}</option>)}</Select>
@@ -370,7 +370,7 @@ export function ReportPage() {
         return (
           <>
             <PageHeader back={{ to: '/royalties', label: t('Роялти') }} title={`Отчёт за ${formatPeriod(r.period, intlLocale()).toLowerCase()}`}
-              sub={<span className="row"><span className="mono">{r.number}</span>{isStaff && <span>{partners.data?.find((p) => p.id === r.partner_id)?.name}</span>}<Badge tone={tone}>{t(label)}</Badge>{contract?.is_test && <DemoBadge label="тестовый договор" />}</span>}
+              sub={<span className="row"><span className="mono">{r.number}</span>{isStaff && <span>{partners.data?.find((p) => p.id === r.partner_id)?.name}</span>}<Badge tone={tone}>{t(label)}</Badge></span>}
               actions={
                 <>
                   {editable && <Button variant="primary" onClick={() => setDialog('submit')}>{t('Отправить')}</Button>}

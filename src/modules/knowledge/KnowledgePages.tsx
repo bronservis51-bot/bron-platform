@@ -7,7 +7,7 @@ import { useSession } from '../../platform/session';
 import { toAppError } from '../../platform/backend';
 import { formatDate, formatDateTime } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
-import { ActionError, Alert, Badge, Button, Card, Checkbox, Chips, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, KV, LinkButton, NoResults,
+import { ActionError, Alert, Badge, Button, Card, Checkbox, Chips, ConfirmDialog, DataState, EmptyState, Field, Input, KV, LinkButton, NoResults,
   PageHeader, Select, Tabs, Textarea } from '../../ui';
 import { ARTICLE_STATUS, EXPORT_STATUS, st } from '../../ui/status';
 import { headings, Markdown } from '../../ui/markdown';
@@ -199,7 +199,7 @@ export function ArticlePage() {
       if (action === 'change') await kbCommands.driveChange(id, `${rev.data?.body ?? ''}\n\n## Обновление из исходного документа\n\nДобавлен шаг проверки калибровки (демо-изменение в Drive).`, `v${Date.now() % 1000}`);
       else await kbCommands.driveAccess(id, action === 'restore');
     },
-    onSuccess: () => { toast('Событие Drive обработано (демо)'); void refresh(); },
+    onSuccess: () => { toast('Доступ восстановлен'); void refresh(); },
   });
   const toc = useMemo(() => headings(rev.data?.body ?? ''), [rev.data?.body]);
 
@@ -266,14 +266,11 @@ export function ArticlePage() {
                   {Boolean(binds.data?.length) && <div className="faint" style={{ marginTop: 8 }}>Показывается в контексте: {binds.data!.map((b) => b.target_key).join(', ')}</div>}
                 </Card>
                 {editor && a.source_mode === 'drive_document' && (
-                  <Card title={<h2 className="row">Исходник в Google Drive <DemoBadge /></h2>}>
+                  <Card title="Исходник в Google Drive">
                     {src.data && <KV items={[['Файл', <span key="f" className="mono">{src.data.external_id}</span>], ['Версия', src.data.external_version], ['Статус обмена', src.data.sync_status], ['Последняя копия', formatDateTime(src.data.last_synced_at, intlLocale())]]} />}
                     {src.data?.error && <Alert tone="danger">{src.data.error}</Alert>}
                     <p className="faint" style={{ marginTop: 8 }}>Изменение исходника создаёт кандидатную редакцию; опубликованная остаётся действующей до согласования.</p>
-                    <div className="row">
-                      <Button size="sm" loading={drive.isPending} onClick={() => drive.mutate('change')}>Изменить исходник (демо)</Button>
-                      {a.status === 'suspended' ? <Button size="sm" onClick={() => drive.mutate('restore')}>Восстановить доступ</Button> : <Button size="sm" variant="danger" onClick={() => drive.mutate('revoke')}>Отозвать доступ (демо)</Button>}
-                    </div>
+                    {a.status === 'suspended' && <div className="row"><Button size="sm" loading={drive.isPending} onClick={() => drive.mutate('restore')}>Восстановить доступ</Button></div>}
                     <ActionError error={drive.error} />
                   </Card>
                 )}

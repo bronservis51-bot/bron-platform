@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Bell, Check, ChevronDown, LogOut, Menu, Search, User, Users, WifiOff, X, IdCard } from 'lucide-react';
 import { useSession } from '../platform/session';
 import { from, rows } from '../platform/backend';
-import { config, quickLoginEnabled } from '../platform/config';
+import { quickLoginEnabled } from '../platform/config';
 import { useT } from '../platform/i18n';
 import { GROUP_TITLE, NAV, primaryMobile, type NavItem } from './nav';
 import { BrandPattern, LogoFull, LogoMark } from '../ui/brand';
@@ -122,7 +122,6 @@ export function Shell() {
   }, [online, me]);
 
   const groups = (['work', 'franchise', 'knowledge', 'control'] as const).map((g) => ({ g, items: nav.filter((n) => n.group === g) })).filter((x) => x.items.length);
-  const isDemo = config.appEnv === 'demo' || me?.operator?.is_demo;
   const link = (n: NavItem) => (
     <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : undefined)}>
       <n.icon size={18} aria-hidden />{t(n.label)}
@@ -135,7 +134,7 @@ export function Shell() {
       <aside className="sidebar" aria-label="Основная навигация">
         <div className="brand">
           <LogoFull height={40} />
-          <span className="brand-sub">{t('Рабочий кабинет')}{isDemo ? ' · demo' : ''}</span>
+          <span className="brand-sub">{t('Рабочий кабинет')}</span>
         </div>
         <nav className="nav">
           {groups.map(({ g, items }) => (
@@ -147,7 +146,6 @@ export function Shell() {
         </nav>
         <div className="sidebar-foot">
           <BrandPattern rows={3} cols={6} />
-          <div className="faint">{t('Версия')} {config.version}</div>
         </div>
       </aside>
       <div className="main">
@@ -155,7 +153,6 @@ export function Shell() {
           <div className="grow" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <span className="mobile-mark"><LogoMark height={28} /></span>
             <ContextSwitcher />
-            {isDemo && <span className="badge tone-demo hide-mobile" title={t('Синтетические данные и demo-интеграции')}>{t('Демо-стенд')}</span>}
           </div>
           {can('kb.read') && (
             <button className="icon-btn" aria-label="Поиск по базе знаний" onClick={() => navigate('/kb')}><Search size={20} /></button>

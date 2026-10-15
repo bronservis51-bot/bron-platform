@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarPlus, Megaphone, PackageCheck, Users, X } from 'lucide-react';
 import { formatDate } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
-import { Badge, Button, Card, Chips, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, PageHeader, Textarea } from '../../ui';
+import { Badge, Button, Card, Chips, ConfirmDialog, DataState, EmptyState, Field, Input, PageHeader, Textarea } from '../../ui';
 import { useToast } from '../../ui/toast';
 import { stockBoard, supplyCommands, type BoardItem } from './api';
 import { ProductMockup } from './Mockup';
@@ -89,7 +89,7 @@ export function SupplyPage() {
                   </div>
                 );
               })}
-              <p className="faint"><DemoBadge label="Демо" /> {t('Остатки — демо-проекция склада. В рабочем контуре приход обновит синхронизация с «МойСклад», уведомления сработают так же.')}</p>
+              <p className="faint">{t('Остатки обновляются со склада. Когда ожидаемый товар поступит, придёт уведомление.')}</p>
             </div>
           );
         }}

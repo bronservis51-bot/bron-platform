@@ -8,7 +8,7 @@ import { useSession } from '../../platform/session';
 import { config } from '../../platform/config';
 import { formatDateTime } from '../../platform/dates';
 import { intlLocale } from '../../platform/i18n';
-import { ActionError, Alert, Badge, Button, Card, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, KV, PageHeader, Select, Tabs, Textarea } from '../../ui';
+import { ActionError, Badge, Button, Card, ConfirmDialog, DataState, EmptyState, Field, Input, KV, PageHeader, Select, Tabs, Textarea } from '../../ui';
 import { OUTBOX_STATUS, st } from '../../ui/status';
 import { useToast } from '../../ui/toast';
 import { useLocations, usePartners, useRoles, useUserNames } from '../shared/lookups';
@@ -40,26 +40,17 @@ function Integrations() {
 
   return (
     <div className="stack">
-      <Alert tone="demo" title="Все подключения работают в demo-режиме">
-        Адаптеры эмулируют «МойСклад», Google Drive, CRM и банк внутри базы. Ни один статус здесь не подтверждает реальную отгрузку, оплату или сохранение файла.
-      </Alert>
       <Card title="Подключения" actions={can('integration.operate') && <Button size="sm" variant="primary" loading={run.isPending} onClick={() => run.mutate()}><Play size={15} aria-hidden />Обработать очередь сейчас</Button>}>
-        <p className="faint">Фоновая обработка выполняется сервером по расписанию (pg_cron), если модуль доступен в проекте; кнопка запускает её вручную.</p>
+        <p className="faint">Очередь обрабатывается автоматически; кнопка запускает обработку сразу.</p>
         <DataState query={conns}>
           {(cs) => (
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Система</th><th>Режим</th><th>Состояние</th><th>Последний успех</th><th>Поведение демо</th></tr></thead>
+              <thead><tr><th>Система</th><th>Состояние</th><th>Последний успех</th></tr></thead>
               <tbody>{cs.map((c) => (
                 <tr key={c.id}>
                   <td><strong>{c.title}</strong>{c.last_error && c.status !== 'ok' && <div className="faint">{c.last_error}</div>}</td>
-                  <td>{c.mode === 'demo' ? <DemoBadge /> : c.mode}</td>
                   <td><Badge tone={c.status === 'ok' ? 'success' : c.status === 'degraded' ? 'warning' : 'danger'}>{{ ok: 'работает', degraded: 'сбои', down: 'недоступно', disabled: 'отключено' }[c.status]}</Badge></td>
                   <td>{formatDateTime(c.last_success_at, intlLocale())}</td>
-                  <td>{can('integration.operate') && ['moysklad', 'google_drive'].includes(c.provider) ? (
-                    <Select aria-label={`Поведение демо: ${c.title}`} value={c.demo_behavior} onChange={(e) => act.mutate(() => command('integration_set_demo_behavior', { provider: c.provider, behavior: e.target.value }))} style={{ minHeight: 36 }}>
-                      <option value="success">успешный ответ</option><option value="fail">ошибка (недоступно)</option><option value="lost_response">ответ потерян</option>
-                    </Select>
-                  ) : '—'}</td>
                 </tr>
               ))}</tbody>
             </table></div>
@@ -67,7 +58,7 @@ function Integrations() {
         </DataState>
         <ActionError error={run.error ?? act.error} />
       </Card>
-      <Card title="Исходящие команды (outbox)" actions={<Button size="sm" variant="ghost" onClick={() => void refresh()}><RefreshCw size={15} aria-hidden />Обновить</Button>} bodyless>
+      <Card title="Исходящие команды" actions={<Button size="sm" variant="ghost" onClick={() => void refresh()}><RefreshCw size={15} aria-hidden />Обновить</Button>} bodyless>
         <DataState query={outbox} empty={(d) => (d.length ? null : <EmptyState title="Очередь пуста" />)}>
           {(d) => (
             <ul className="list">{d.map((o) => {
@@ -118,7 +109,7 @@ function Queues() {
   const q = useQuery({ queryKey: ['queue-health'], queryFn: () => command<{ queue_role: string; queue_name: string; partner_name: string | null; location_name: string | null; open_items: number; members: number; backup_members: number }[]>('queue_health') });
   return (
     <Card title="Очереди и исполнители" bodyless>
-      <div className="card-body faint">Процесс без доступного исполнителя и резерва — конфигурационная ошибка (CORE-07).</div>
+      <div className="card-body faint">Процесс без доступного исполнителя и резерва — назначьте исполнителя в разделе «Доступ».</div>
       <DataState query={q} empty={(d) => (d.length ? null : <EmptyState title="Открытой работы нет" />)}>
         {(d) => (
           <div className="table-wrap"><table className="table">
@@ -230,12 +221,9 @@ function About() {
   return (
     <Card title="О системе">
       <KV items={[
-        ['Версия', config.version], ['Окружение', config.appEnv === 'demo' ? 'демонстрация (синтетические данные)' : config.appEnv],
-        ['Оператор', me?.operator?.name], ['Разделение обязанностей', me?.operator?.sod_policy === 'strict' ? 'строгое' : 'разрешено с журналом'],
-        ['Хостинг', 'GitHub Pages (статическая оболочка) + Supabase Free'], ['Резервные копии', 'Только ручной экспорт — см. runbook backup-restore'],
+        ['Версия', config.version],
+        ['Разделение обязанностей', me?.operator?.sod_policy === 'strict' ? 'строгое' : 'разрешено с журналом'],
       ]} />
-      <hr className="divider" />
-      <p className="muted">Ограничения прототипа: нет SLA доступности; проект Supabase может быть приостановлен после 7 дней неактивности; интеграции только demo; push и email-рассылки отключены; поиск не индексирует вложения.</p>
     </Card>
   );
 }

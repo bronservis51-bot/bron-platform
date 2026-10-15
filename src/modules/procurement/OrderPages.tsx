@@ -6,7 +6,7 @@ import { RotateCcw } from 'lucide-react';
 import { useScopeFilter, useSession } from '../../platform/session';
 import { formatDate, formatDateTime } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
-import { ActionError, Alert, Badge, Button, Card, Checkbox, Chips, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, KV, Money, PageHeader,
+import { ActionError, Alert, Badge, Button, Card, Checkbox, Chips, ConfirmDialog, DataState, EmptyState, Field, Input, KV, Money, PageHeader,
   Textarea, Timeline } from '../../ui';
 import { APPROVAL_STATUS, ORDER_STATUS, PAYMENT_STATUS_ORDER, st, TRANSFER_STATUS, UNIT } from '../../ui/status';
 import { useToast } from '../../ui/toast';
@@ -85,7 +85,6 @@ export function OrderPage() {
   const [text, setText] = useState('');
   const [recv, setRecv] = useState<Record<string, string>>({});
   const [final, setFinal] = useState(false);
-  const [lastEvent, setLastEvent] = useState<string | null>(null);
 
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['order', id] }); void qc.invalidateQueries({ queryKey: ['orders'] }); void qc.invalidateQueries({ queryKey: ['today'] }); };
   const act = useMutation({
@@ -94,7 +93,7 @@ export function OrderPage() {
   });
   const demo = useMutation({
     mutationFn: ({ type, mode, eventId }: { type: string; mode: string; eventId: string | null }) => orderCommands.demoEvent(id, type, mode, eventId),
-    onSuccess: (r) => { setLastEvent(r.event_id); toast(r.inbox === 'duplicate' ? 'Повтор события получен и проигнорирован — данные не изменились' : 'Событие склада обработано (демо)'); refresh(); },
+    onSuccess: () => { toast('Статус заказа обновлён'); refresh(); },
   });
 
   return (
@@ -160,8 +159,8 @@ export function OrderPage() {
                   )) : <span className="muted">Отгрузок пока нет</span>}
                 </Card>
                 {can('integration.operate') && o.transfer_status === 'sent' && !['completed', 'cancelled'].includes(o.status) && (
-                  <Card title={<h2 className="row">События склада <DemoBadge /></h2>}>
-                    <p className="muted">Демо-адаптер «МойСклад»: эмулирует события склада. Не является реальной отгрузкой.</p>
+                  <Card title="Статус на складе">
+                    <p className="muted">Отметьте, что произошло с заказом на складе.</p>
                     <div className="row">
                       <Button size="sm" onClick={() => demo.mutate({ type: 'order.accepted', mode: 'full', eventId: null })}>Склад подтвердил</Button>
                       <Button size="sm" onClick={() => demo.mutate({ type: 'order.accepted', mode: 'partial', eventId: null })}>Подтвердил с дефицитом</Button>
@@ -169,7 +168,6 @@ export function OrderPage() {
                       <Button size="sm" onClick={() => demo.mutate({ type: 'shipment.created', mode: 'full', eventId: null })}>Отгрузить остаток</Button>
                       <Button size="sm" onClick={() => demo.mutate({ type: 'shipment.delayed', mode: 'full', eventId: null })}>Отмена рейса</Button>
                       <Button size="sm" onClick={() => demo.mutate({ type: 'shipment.delivered', mode: 'full', eventId: null })}>Доставлено</Button>
-                      {lastEvent && <Button size="sm" variant="ghost" onClick={() => demo.mutate({ type: 'shipment.delivered', mode: 'full', eventId: lastEvent })}>Повторить последнее событие</Button>}
                     </div>
                     <ActionError error={demo.error} />
                   </Card>

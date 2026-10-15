@@ -8,7 +8,7 @@ import { formatDateTime } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
 import { toAppError } from '../../platform/backend';
 import { drafts, opQueue, type QueuedOperation } from '../../platform/offline';
-import { ActionError, Alert, Badge, Button, Card, Checkbox, Chips, ConfirmDialog, DataState, DemoBadge, Due, EmptyState, Field, Input, KV, LinkButton,
+import { ActionError, Alert, Badge, Button, Card, Checkbox, Chips, ConfirmDialog, DataState, Due, EmptyState, Field, Input, KV, LinkButton,
   PageHeader, Select, Textarea, Timeline } from '../../ui';
 import { st, TICKET_STATUS, URGENCY } from '../../ui/status';
 import { FileAttach, FileList } from '../../ui/files';
@@ -211,8 +211,8 @@ function TranslateButton({ messageId, target }: { messageId: string; target: str
   if (res) {
     return (
       <div style={{ marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 8 }}>
-        <div className="row"><DemoBadge label="Перевод (демо)" /><span className="faint">{t('подготовленный текст, не машинный перевод')}</span></div>
-        <div>{res.available ? res.translated : t('Для этого сообщения демо-перевода нет.')}</div>
+        <div className="faint">{t('Перевод')}</div>
+        <div>{res.available ? res.translated : t('Для этого сообщения перевода нет.')}</div>
       </div>
     );
   }

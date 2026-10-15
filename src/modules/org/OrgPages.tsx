@@ -7,7 +7,7 @@ import { from, rows } from '../../platform/backend';
 import { useSession } from '../../platform/session';
 import { formatDate, formatPeriod } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
-import { Badge, Card, DataState, DemoBadge, EmptyState, Input, KV, Money, NoResults, PageHeader } from '../../ui';
+import { Badge, Card, DataState, EmptyState, Input, KV, Money, NoResults, PageHeader } from '../../ui';
 import { OPENING_STATUS, ORDER_STATUS, REPORT_STATUS, st, TICKET_STATUS } from '../../ui/status';
 import { useLocations, usePartners, type Location } from '../shared/lookups';
 
@@ -51,7 +51,7 @@ export function PartnersPage() {
                           <div className="title">{p.name}</div>
                           <div className="meta"><span className="mono">{p.code}</span><span>{p.country}</span><span>{pl.length} точ.</span></div>
                         </div>
-                        <div className="side">{p.is_demo && <DemoBadge />}</div>
+                        <div className="side" />
                       </Link>
                     </li>
                   );
@@ -129,7 +129,7 @@ export function PartnerPage() {
       {(p) => p && (
         <>
           <PageHeader back={isStaff ? { to: '/partners', label: 'Партнёры и точки' } : undefined} title={p.name}
-            sub={<span className="row"><span className="mono">{p.code}</span><span>{p.country}</span>{p.is_demo && <DemoBadge />}</span>} />
+            sub={<span className="row"><span className="mono">{p.code}</span><span>{p.country}</span></span>} />
           <div className="grid grid-main">
             <div className="stack">
               <Section title="Точки">
@@ -185,7 +185,7 @@ export function PartnerPage() {
               {can('contract.read') && (contracts.data ?? []).map((c) => {
                 const pol = [...c.contract_policy_version].sort((a, b) => b.effective_from.localeCompare(a.effective_from));
                 return (
-                  <Card key={c.id} title={`Договор ${c.number}`} actions={c.is_test && <Badge tone="demo">тестовый</Badge>}>
+                  <Card key={c.id} title={`Договор ${c.number}`} >
                     <KV items={[
                       ['Действует', `с ${formatDate(c.valid_from, intlLocale())}${c.valid_to ? ` по ${formatDate(c.valid_to, intlLocale())}` : ''}`],
                       ['Валюта', c.currency],

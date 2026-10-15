@@ -5,7 +5,7 @@ import { Info } from 'lucide-react';
 import { command } from '../../platform/backend';
 import { formatDateTime } from '../../platform/dates';
 import { intlLocale } from '../../platform/i18n';
-import { Alert, Card, DataState, Money, PageHeader } from '../../ui';
+import { Card, DataState, Money, PageHeader } from '../../ui';
 
 interface Item { key: string; title: string; link: string; definition: string; value: unknown }
 
@@ -42,7 +42,7 @@ export function OverviewPage() {
       <DataState query={q} skeleton={8}>
         {(d) => (
           <>
-            <div style={{ marginBottom: 16 }}><Alert tone="demo">{d.note} Обновлено {formatDateTime(d.generated_at, intlLocale())}. Суммы в разных валютах не складываются.</Alert></div>
+            <div style={{ marginBottom: 16 }}><p className="faint">Обновлено {formatDateTime(d.generated_at, intlLocale())}. Суммы в разных валютах не складываются.</p></div>
             <div className="grid grid-3">
               {d.items.map((i) => (
                 <Link key={i.key} to={i.link} className="stat-link" aria-label={`${i.title}: открыть список`}>

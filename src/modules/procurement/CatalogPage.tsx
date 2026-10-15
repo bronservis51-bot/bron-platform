@@ -9,7 +9,7 @@ import { newOperationKey, toAppError } from '../../platform/backend';
 import { dueInfo } from '../../platform/dates';
 import { intlLocale, useT } from '../../platform/i18n';
 import { sumMinor, toBigInt } from '../../platform/money';
-import { ActionError, Alert, Button, Card, ConfirmDialog, DataState, DemoBadge, EmptyState, Field, Input, Money, NoResults, PageHeader, Select, Textarea } from '../../ui';
+import { ActionError, Alert, Button, Card, ConfirmDialog, DataState, EmptyState, Field, Input, Money, NoResults, PageHeader, Select, Textarea } from '../../ui';
 import { UNIT } from '../../ui/status';
 import { useToast } from '../../ui/toast';
 import { useLocationsWith } from '../shared/lookups';
@@ -71,7 +71,7 @@ function ProductCard({ it, inCart, onSet, busy, fav, onFav, onSubscribe }: { it:
       <div className="product-sku">{t('Артикул')}: {it.article_no ?? it.sku}</div>
       {it.subtitle && <div className="product-sub">{t(it.subtitle)}</div>}
       <div className="product-price"><Money minor={it.price_minor} currency={it.currency} short />{it.unit !== 'sheet' && <span className="faint" style={{ fontWeight: 400 }}> / {t(UNIT[it.unit] ?? it.unit)}</span>}</div>
-      <div className="product-stock" title={age ? `${it.stock_source === 'demo' ? t('демо-проекция,') + ' ' : ''}${t('обновлено {{age}} назад', { age })}` : undefined}>
+      <div className="product-stock" title={age ? t('обновлено {{age}} назад', { age }) : undefined}>
         {avail === null ? t('Остаток неизвестен') : avail <= 0 ? <span style={{ color: 'var(--danger)' }}>{it.incoming_on
             ? `${t('Нет в наличии · ожидается')} ${new Date(`${it.incoming_on}T12:00:00Z`).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' })}`
             : `${t('Нет в наличии')}${it.lead_time_days ? ` · ~${it.lead_time_days} ${t('дн.')}` : ''}`}</span>
@@ -267,7 +267,7 @@ export function CatalogPage() {
         )}
       </DataState>
       <ActionError error={setLine.error} />
-      <div style={{ marginTop: 24 }} className="faint"><DemoBadge label="Демо" /> {t('Остатки — проекция склада; резерв подтверждает склад после передачи заказа.')}</div>
+      <div style={{ marginTop: 24 }} className="faint">{t('Остатки обновляются со склада; резерв подтверждает склад после передачи заказа.')}</div>
 
       <button type="button" className="cart-fab" aria-label={`${t('Корзина')}: ${count}`} onClick={() => setOpen(true)}>
         <ShoppingCart size={26} aria-hidden />

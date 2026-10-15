@@ -517,9 +517,10 @@ a.today-earn:hover { filter: brightness(1.08); }
 .mobile-only { display: none !important; }
 @media (max-width: 960px) { .mobile-only { display: block !important; } .desktop-only { display: none !important; } }
 .slow-hint { margin: -6px 0 14px; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-s); color: var(--text-2); }
-.boot-screen { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 18px; background: var(--bg); color: var(--text); }
-.boot-bar { width: 180px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
-.boot-bar span { display: block; width: 40%; height: 100%; background: var(--text); border-radius: 2px; animation: boot 1.1s ease-in-out infinite; }
+.boot-screen { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 22px; background: var(--bg); color: var(--text); }
+.boot-screen img { width: 72px; height: 72px; border-radius: 16px; }
+.boot-bar { width: 160px; height: 4px; border-radius: 2px; background: rgba(127, 127, 135, .22); overflow: hidden; }
+.boot-bar span { display: block; width: 40%; height: 100%; background: #7f7f87; border-radius: 2px; animation: boot 1.1s ease-in-out infinite; }
 @keyframes boot { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
 @media (prefers-reduced-motion: reduce) { .boot-bar span { animation: none; width: 100%; opacity: .5; } }
 

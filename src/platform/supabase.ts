@@ -30,6 +30,29 @@ const authStorage = {
   },
 };
 
+/**
+ * Снимок последних ответов (профиль, «Сегодня») для мгновенного старта: экран рисуется сразу, свежие данные догружаются.
+ * Лежит там же, где сессия: без «Запомнить устройство» — до закрытия вкладки. Стирается при выходе.
+ */
+const CACHE_PREFIX = 'bron.cache.';
+export const snapshot = {
+  get<T>(key: string): T | null {
+    return safe(() => {
+      const raw = store()?.getItem(CACHE_PREFIX + key);
+      return raw ? (JSON.parse(raw) as T) : null;
+    }, null);
+  },
+  set(key: string, value: unknown) {
+    safe(() => store()?.setItem(CACHE_PREFIX + key, JSON.stringify(value)), undefined);
+  },
+  clear() {
+    for (const s of [safe(() => localStorage, null), safe(() => sessionStorage, null)]) {
+      if (!s) continue;
+      safe(() => Object.keys(s).filter((k) => k.startsWith(CACHE_PREFIX)).forEach((k) => s.removeItem(k)), undefined);
+    }
+  },
+};
+
 let lastRequestId = '';
 export const getLastRequestId = () => lastRequestId;
 
