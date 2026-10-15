@@ -108,8 +108,25 @@ function WorldMap({ points, selected, onSelect }: { points: MapLocation[]; selec
   const { t } = useT();
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const [k, setK] = useState(1);
-  const [tf, setTf] = useState('');
+  // Масштаб карты; точки и подписи рисуются поверх в экранных координатах и не растут при приближении
+  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  // Единиц карты на один пиксель экрана: точки и текст одного размера на телефоне и на компьютере
+  // и видимая полоса по горизонтали (на телефоне карта выше и обрезается по бокам)
+  const [{ u, left, right }, setFit] = useState({ u: 1, left: 0, right: W });
+  useEffect(() => {
+    const el = svgRef.current!;
+    const update = () => {
+      const cw = el.clientWidth;
+      const ch = el.clientHeight;
+      if (!cw || !ch) return;
+      const unit = 1 / Math.max(cw / W, ch / H);
+      setFit({ u: unit, left: W / 2 - (cw * unit) / 2, right: W / 2 + (cw * unit) / 2 });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const projection = useMemo(() => geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], { type: 'Sphere' } as GeoPermissibleObjects), []);
   const path = useMemo(() => geoPath(projection), [projection]);
   const countries = useMemo(() => {
@@ -121,13 +138,13 @@ function WorldMap({ points, selected, onSelect }: { points: MapLocation[]; selec
   const placed = useMemo(() => {
     const byCity = new Map<string, MapLocation[]>();
     for (const p of points) if (p.lat !== null && p.lng !== null) byCity.set(`${p.lat},${p.lng}`, [...(byCity.get(`${p.lat},${p.lng}`) ?? []), p]);
-    const out: { p: MapLocation; x: number; y: number; dx: number; dy: number }[] = [];
+    const out: { p: MapLocation; x: number; y: number; dx: number; dy: number; group: MapLocation[]; first: boolean }[] = [];
     for (const group of byCity.values()) {
       const [x, y] = projection([Number(group[0].lng), Number(group[0].lat)]) ?? [0, 0];
       group.forEach((p, i) => {
         const a = (i / group.length) * Math.PI * 2;
-        const r = group.length > 1 ? 9 : 0;
-        out.push({ p, x, y, dx: Math.cos(a) * r, dy: Math.sin(a) * r });
+        const r = group.length > 1 ? 1 : 0;
+        out.push({ p, x, y, dx: Math.cos(a) * r, dy: Math.sin(a) * r, group, first: i === 0 });
       });
     }
     return out;
@@ -136,7 +153,7 @@ function WorldMap({ points, selected, onSelect }: { points: MapLocation[]; selec
   useEffect(() => {
     const svg = select(svgRef.current!);
     const z = d3zoom<SVGSVGElement, unknown>().scaleExtent([1, 60]).translateExtent([[0, 0], [W, H]])
-      .on('zoom', (e) => { setTf(e.transform.toString()); setK(e.transform.k); });
+      .on('zoom', (e) => setView({ x: e.transform.x, y: e.transform.y, k: e.transform.k }));
     zoomRef.current = z;
     svg.call(z);
     return () => { svg.on('.zoom', null); };
@@ -150,7 +167,9 @@ function WorldMap({ points, selected, onSelect }: { points: MapLocation[]; selec
     const xs = placed.map((q) => q.x);
     const ys = placed.map((q) => q.y);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const scale = Math.min(14, 0.7 / Math.max((x1 - x0 + 40) / W, (y1 - y0 + 40) / H));
+    const el = svgRef.current!;
+    const vw = el.clientWidth && el.clientHeight ? Math.min(W, (el.clientWidth / el.clientHeight) * H) : W; // видимая ширина карты
+    const scale = Math.min(14, 0.7 / Math.max((x1 - x0 + 40) / vw, (y1 - y0 + 40) / H));
     const tx = W / 2 - scale * (x0 + x1) / 2;
     const ty = H / 2 - scale * (y0 + y1) / 2;
     select(svgRef.current!).call(zoomRef.current.transform, zoomIdentity.translate(tx, ty).scale(scale));
@@ -159,30 +178,59 @@ function WorldMap({ points, selected, onSelect }: { points: MapLocation[]; selec
   const zoomBy = (f: number) => select(svgRef.current!).transition().duration(250).call(zoomRef.current!.scaleBy, f);
   const world = () => select(svgRef.current!).transition().duration(400).call(zoomRef.current!.transform, zoomIdentity);
 
+  // Страны не перерисовываются при движении карты — меняется только трансформация слоя
+  const geography = useMemo(() => (
+    <>
+      <path d={path({ type: 'Sphere' } as GeoPermissibleObjects) ?? ''} className="map-sea" />
+      {countries.map((c, i) => (
+        <path key={i} d={path(c) ?? ''} className={`map-country${withPoints.has(c.properties?.name) ? ' active' : ''}`} />
+      ))}
+    </>
+  ), [countries, path, withPoints]);
+
+  const { x: tx, y: ty, k } = view;
+  const toScreen = (x: number, y: number) => [x * k + tx, y * k + ty] as const;
+  // Подписи: одна на город (название точки или «город · N»), выбранная точка — всегда; пересекающиеся пропускаются
+  const labels: { id: string; x: number; y: number; text: string }[] = [];
+  if (k > 2 || selected) {
+    const boxes: [number, number, number, number][] = [];
+    const cand = placed
+      .filter((q) => (k > 2 && q.first) || q.p.id === selected)
+      .map((q) => {
+        const one = q.group.length === 1 || q.p.id === selected;
+        const [sx, sy] = toScreen(q.x, q.y);
+        return { id: q.p.id, x: one ? sx + q.dx * 14 * u : sx, y: (one ? sy + q.dy * 14 * u : sy) - (q.group.length > 1 && !one ? 22 : 13) * u, text: one ? q.p.name : `${q.p.city} · ${q.group.length}`, pri: q.p.id === selected ? 0 : 1 };
+      })
+      .sort((a, b) => a.pri - b.pri);
+    for (const c of cand) {
+      const w = (c.text.length * 6.8 + 8) * u;
+      if (c.x < left || c.x > right || c.y < 0 || c.y > H) continue; // точка за краем — подпись не нужна
+      c.x = Math.min(Math.max(c.x, left + w / 2 + 4 * u), right - w / 2 - 56 * u); // не заходить под кнопки масштаба
+      const box: [number, number, number, number] = [c.x - w / 2, c.y - 13 * u, c.x + w / 2, c.y + 3 * u];
+      if (boxes.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+      boxes.push(box);
+      labels.push(c);
+    }
+  }
+
   return (
     <div className="world-map">
-      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('Карта точек сети')} onClick={(e) => { if (e.target === svgRef.current) onSelect(null); }}>
-        <g transform={tf}>
-          <path d={path({ type: 'Sphere' } as GeoPermissibleObjects) ?? ''} className="map-sea" onClick={() => onSelect(null)} />
-          {countries.map((c, i) => (
-            <path key={i} d={path(c) ?? ''} className={`map-country${withPoints.has(c.properties?.name) ? ' active' : ''}`} strokeWidth={0.5 / k} onClick={() => onSelect(null)}>
-              <title>{c.properties?.name}</title>
-            </path>
-          ))}
-          {placed.map(({ p, x, y, dx, dy }) => {
-            const warn = attention(p).length > 0;
-            const r = 6 / Math.sqrt(k);
-            return (
-              <g key={p.id} transform={`translate(${x + dx / k},${y + dy / k})`} className={`map-pin ${p.kind}${p.status === 'opening' ? ' opening' : ''}${selected === p.id ? ' selected' : ''}`}
-                role="button" tabIndex={0} aria-label={`${p.name}, ${p.city}`} onClick={(e) => { e.stopPropagation(); onSelect(p.id); }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(p.id); } }}>
-                {warn && <circle r={r * 2.1} className="pin-alert" />}
-                <circle r={r} className="pin-dot" strokeWidth={1.6 / Math.sqrt(k)} />
-                {k > 5 && <text y={-r - 4 / Math.sqrt(k)} fontSize={11 / Math.sqrt(k)} className="pin-label">{p.name}</text>}
-              </g>
-            );
-          })}
-        </g>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label={t('Карта точек сети')} onClick={(e) => { if (!(e.target as Element).closest('.map-pin')) onSelect(null); }}>
+        <g transform={`translate(${tx},${ty}) scale(${k})`}>{geography}</g>
+        {placed.map(({ p, x, y, dx, dy }) => {
+          const warn = attention(p).length > 0;
+          const [sx, sy] = toScreen(x, y);
+          const r = 6 * u;
+          return (
+            <g key={p.id} transform={`translate(${sx + dx * 14 * u},${sy + dy * 14 * u})`} className={`map-pin ${p.kind}${p.status === 'opening' ? ' opening' : ''}${selected === p.id ? ' selected' : ''}`}
+              role="button" tabIndex={0} aria-label={`${p.name}, ${p.city}`} onClick={(e) => { e.stopPropagation(); onSelect(p.id); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(p.id); } }}>
+              {warn && <circle r={r * 2.1} className="pin-alert" />}
+              <circle r={r} className="pin-dot" strokeWidth={1.6 * u} />
+            </g>
+          );
+        })}
+        {labels.map((l) => <text key={l.id} x={l.x} y={l.y} className="pin-label" fontSize={12 * u} strokeWidth={3 * u}>{l.text}</text>)}
       </svg>
       <div className="map-controls">
         <button type="button" aria-label={t('Приблизить')} onClick={() => zoomBy(1.8)}><Plus size={18} /></button>
