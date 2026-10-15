@@ -286,3 +286,4 @@ Object.assign(tr2, {
   'Лиды франшизы': 'Franchise adayları', 'Новый лид': 'Yeni aday', 'Визитов': 'Ziyaret', 'Всего потратил': 'Toplam harcama', 'Гарантия': 'Garanti', 'нет': 'yok', 'последний': 'son',
   'С телефоном': 'Telefonlu', 'мои': 'benim', 'День': 'Gün', 'Цена': 'Fiyat', 'Оплата': 'Ödeme', 'выручка сети за месяц, в рублях': 'aylık ağ cirosu, ruble',
 });
+Object.assign(tr2, { 'Задачи': 'Görevler', 'Лиды': 'Adaylar', 'Контроль': 'Kontrol', 'Приход': 'Girişler' });

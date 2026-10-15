@@ -193,7 +193,7 @@ function WorldMap({ points, selected, onSelect }: { points: MapLocation[]; selec
         <span><i className="lg own" /> {t('Собственная')}</span>
         <span><i className="lg franchise" /> {t('Франшиза')}</span>
         <span><i className="lg opening" /> {t('Открывается')}</span>
-        <span><i className="lg alert" /> {t('Требует внимания')}</span>
+        <span><i className="lg attn" /> {t('Требует внимания')}</span>
       </div>
     </div>
   );

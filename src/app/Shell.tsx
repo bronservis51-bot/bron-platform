@@ -177,11 +177,11 @@ export function Shell() {
       <nav className="bottom-nav" aria-label="Навигация">
         {mobile.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : undefined)}>
-            <n.icon size={22} aria-hidden />{t(n.label)}
+            <n.icon size={22} aria-hidden /><span className="nav-label">{t(n.short ?? n.label)}</span>
             {n.to === '/' && Boolean(unread.data) && <span className="dot" aria-hidden />}
           </NavLink>
         ))}
-        <button type="button" onClick={() => setMore(true)} aria-haspopup="dialog"><Menu size={22} aria-hidden />{t('Ещё')}</button>
+        <button type="button" onClick={() => setMore(true)} aria-haspopup="dialog"><Menu size={22} aria-hidden /><span className="nav-label">{t('Ещё')}</span></button>
       </nav>
       {more && (
         <>

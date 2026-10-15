@@ -155,9 +155,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
     background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom);
   }
   .bottom-nav a, .bottom-nav button {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px;
-    color: var(--text-3); font-size: 11.5px; background: none; border: 0; text-decoration: none; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; min-height: 60px; min-width: 0; padding: 9px 2px 6px;
+    color: var(--text-3); font-size: 11.5px; line-height: 1.2; background: none; border: 0; text-decoration: none; position: relative;
   }
+  .bottom-nav svg { flex: none; }
+  .bottom-nav .nav-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bottom-nav a.active { color: var(--primary); }
   :root:not([data-theme="light"]) .bottom-nav a.active { color: var(--link); }
   .bottom-nav .dot { position: absolute; top: 8px; right: calc(50% - 18px); width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
@@ -322,6 +324,7 @@ dialog.dialog::backdrop { background: rgb(10 15 22 / 45%); }
 .menu .sep { border-top: 1px solid var(--border); margin: 6px 0; }
 .ctx-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; max-width: 100%; }
 .ctx-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 480px) { .ctx-btn { font-size: 14px; padding: 4px 10px; gap: 4px; } .topbar { gap: 4px; } .topbar .icon-btn { width: 40px; } }
 
 /* Статьи */
 .prose { line-height: 1.65; overflow-wrap: anywhere; }
@@ -590,7 +593,15 @@ a.today-earn:hover { filter: brightness(1.08); }
 .map-summary .alert .v { color: var(--danger); }
 .map-summary .wide { grid-column: span 1; }
 @media (max-width: 1100px) { .map-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .map-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .map-summary .wide { grid-column: 1 / -1; } }
+/* Телефон: три плитки в ряд, затем две, выручка во всю ширину — без пустых мест */
+@media (max-width: 560px) {
+  .map-summary { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+  .map-summary > div { grid-column: span 2; padding: 12px; }
+  .map-summary > div:nth-child(4), .map-summary > div:nth-child(5) { grid-column: span 3; }
+  .map-summary .wide { grid-column: 1 / -1; }
+  .map-summary .v { font-size: 22px; }
+  .map-legend { right: 60px; }
+}
 .map-layout { display: grid; grid-template-columns: 1fr; gap: 14px; }
 .map-layout.with-details { grid-template-columns: minmax(0, 1fr) 360px; }
 @media (max-width: 1100px) { .map-layout.with-details { grid-template-columns: 1fr; } }
@@ -617,7 +628,7 @@ a.today-earn:hover { filter: brightness(1.08); }
 .lg.own { background: #0f0f11; border: 2px solid #fefefe; }
 .lg.franchise { background: #c1c2c4; }
 .lg.opening { border: 2px dashed #c1c2c4; }
-.lg.alert { background: rgb(229 56 59 / 40%); border: 1px solid #e5383b; }
+.lg.attn { background: rgb(229 56 59 / 40%); border: 1px solid #e5383b; }
 .map-details { border-radius: 18px; padding: 18px; background: var(--surface); border: 1px solid var(--border); align-self: start; }
 .map-kind { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); font-weight: 600; }
 .map-warn { display: flex; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgb(229 56 59 / 10%); color: var(--danger); font-size: var(--fs-s); margin-bottom: 10px; }
@@ -805,12 +816,13 @@ button.net-kpi { cursor: pointer; }
 .net-bar span { display: block; height: 100%; border-radius: 2px; background: var(--text-2); }
 .net-side { display: grid; justify-items: end; gap: 2px; flex: none; }
 .net-sum { font-weight: 700; font-variant-numeric: tabular-nums; }
-.net-kpi.on { box-shadow: 0 0 0 2px var(--text); }
+/* На телефоне две плитки помещаются рядом: без горизонтальной прокрутки и обрезанных краёв */
 @media (max-width: 760px) {
-  .net-kpis { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(70%, 1fr); overflow-x: auto; margin: 0 -16px; padding: 2px 16px 6px; scroll-snap-type: x mandatory; scrollbar-width: none; }
-  .net-kpis::-webkit-scrollbar { display: none; }
-  .net-kpi { scroll-snap-align: start; }
-  .net-kpi .v { font-size: 22px; }
+  .net-kpis { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 8px; margin: 6px 0 2px; }
+  .net-selects .select { flex: 1 1 calc(50% - 4px); max-width: none; }
+  .net-search { flex: 1 1 100%; }
+  .net-kpi { padding: 14px; align-content: start; }
+  .net-kpi .v { font-size: 21px; white-space: nowrap; }
 }
 .bars { height: 140px; }
 .bars-axis { position: relative; height: 16px; margin-top: 4px; }
